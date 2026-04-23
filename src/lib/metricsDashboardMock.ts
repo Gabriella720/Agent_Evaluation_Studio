@@ -64,7 +64,8 @@ export const intentMatrix = [
   { actual: "Other", predicted: "Other", value: 421 }
 ];
 
-export const ragHitSeries = metric("rag-hit").trend.map((t) => ({
+// Legacy export retained for compatibility; now driven by RAG Score.
+export const ragHitSeries = metric("rag-score").trend.map((t) => ({
   label: t.label,
   hit: t.value,
   miss: Math.max(0, 100 - t.value)

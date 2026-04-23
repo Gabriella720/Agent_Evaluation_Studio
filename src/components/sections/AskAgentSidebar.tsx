@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Copy, Mic, Send, Sparkles, ThumbsDown, ThumbsUp } from "lucide-react";
-import { askFixedInsight, askSuggestedActionLinks, isAskResolutionDropQuestion } from "@/lib/mockData";
+import { askFixedInsight, askSuggestedActionLinks, isAskRagOptimizationQuestion } from "@/lib/mockData";
 
 type AskAgentSidebarProps = {
   ingested: boolean;
@@ -12,12 +12,14 @@ type AskAgentSidebarProps = {
   onOpenSessionReplay?: (sessionId: string) => void;
   onOpenActionCenter?: (causeId: string) => void;
   onOpenSolutionRoadmap?: () => void;
+  onOpenRagWorkspace?: () => void;
 };
 
 const exampleQuestions = [
   "Why did resolution rate drop today?",
   "Which driver contributed most to the resolution gap?",
-  "Summarize the three verified failure patterns"
+  "Summarize the three verified failure patterns",
+  "How to improve RAG?"
 ];
 
 export function AskAgentSidebar({
@@ -26,7 +28,8 @@ export function AskAgentSidebar({
   onOpenMetrics,
   onOpenPatterns,
   onOpenActionCenter,
-  onOpenSolutionRoadmap
+  onOpenSolutionRoadmap,
+  onOpenRagWorkspace
 }: AskAgentSidebarProps) {
   const [draft, setDraft] = useState("");
   const [voiceActive, setVoiceActive] = useState(false);
@@ -84,12 +87,8 @@ export function AskAgentSidebar({
     setFeedback(null);
     setCopied(false);
 
-    if (isAskResolutionDropQuestion(q)) {
-      runMockWork();
-    } else {
-      // Still show mock work for demo polish.
-      runMockWork();
-    }
+    // Always show mock work (demo polish).
+    runMockWork();
   };
 
   return (
@@ -186,6 +185,20 @@ export function AskAgentSidebar({
                   Open Solution & Roadmap →
                 </button>
 
+                {isAskRagOptimizationQuestion(lastQuestion) ? (
+                  <div className="ask-rag-cta">
+                    <h3 className="ask-insight-title">RAG Optimization Workspace</h3>
+                    <ul className="ask-insight-list">
+                      <li>Start with Step 1 Retrieval: tune chunk size, embeddings, and query rewrite to raise Recall@5.</li>
+                      <li>Enable rerank + context selection to reduce refund-policy distractors for shipping intents.</li>
+                      <li>Run E2E evaluation, then Apply Optimization to propagate improvements to Metrics and Simulation.</li>
+                    </ul>
+                    <button type="button" className="ask-link-row" onClick={() => onOpenRagWorkspace?.()} disabled={!ingested}>
+                      Open RAG Optimization Workspace →
+                    </button>
+                  </div>
+                ) : null}
+
                 <div className="ask-feedback">
                   <button
                     type="button"
@@ -237,6 +250,16 @@ export function AskAgentSidebar({
               className="ask-example-chip"
               onClick={() => {
                 setDraft(q);
+                // If user clicks an example, run immediately.
+                window.setTimeout(() => {
+                  // Avoid sending if ingestion is locked.
+                  if (!ingested) return;
+                  setLastQuestion(q);
+                  setDraft("");
+                  setFeedback(null);
+                  setCopied(false);
+                  runMockWork();
+                }, 0);
               }}
             >
               {q}

@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Plus, RefreshCcw } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Maximize2, Plus, RefreshCcw, X } from "lucide-react";
 import {
   Area,
   AreaChart,
@@ -18,28 +18,69 @@ import {
   PieChart,
   ResponsiveContainer,
   Tooltip,
+  type TooltipContentProps,
   XAxis,
   YAxis
 } from "recharts";
-import { metrics, resolutionImpactBreakdown } from "@/lib/mockData";
+import type { MetricItem } from "@/lib/mockData";
+import { metrics as baseMetrics, resolutionImpactBreakdown } from "@/lib/mockData";
+import { ragMetrics } from "@/lib/mockData";
 import {
   escalationTrend,
   intentMatrix,
   latencySeries,
   metricFooterHint,
   npsGauge,
-  ragHitSeries,
   rangeOptions,
   resolutionTrend,
   taskFunnel,
   topAgentSessions
 } from "@/lib/metricsDashboardMock";
 
-function metricOf(id: string) {
+type TooltipValue = number | string | readonly (number | string)[];
+
+function metricOf(metrics: readonly MetricItem[], id: string) {
   const row = metrics.find((m) => m.id === id);
   if (!row) throw new Error(`Unknown metric ${id}`);
   return row;
 }
+
+function formatTooltipValue(v: unknown): string {
+  if (typeof v === "number") {
+    if (Number.isInteger(v)) return String(v);
+    if (Math.abs(v) >= 100) return v.toFixed(0);
+    return v.toFixed(1);
+  }
+  if (typeof v === "string") return v;
+  if (Array.isArray(v)) return v.map((x) => formatTooltipValue(x)).join(", ");
+  return String(v ?? "");
+}
+
+function kpiTooltip(p: TooltipContentProps<TooltipValue, string | number>): React.ReactNode {
+  if (!p?.active || !p?.payload || p.payload.length === 0) return null;
+  return (
+    <div className="kpi-tooltip">
+      {p.label != null ? <div className="kpi-tooltip-title">{String(p.label)}</div> : null}
+      <div className="kpi-tooltip-lines">
+        {p.payload.map((entry, idx) => {
+          const e = entry as unknown as { name?: unknown; value?: unknown; color?: string };
+          const name = e.name != null ? String(e.name) : `Series ${idx + 1}`;
+          const value = formatTooltipValue(e.value);
+          return (
+            <div key={`${name}-${idx}`} className="kpi-tooltip-line">
+              <span className="kpi-tooltip-dot" style={{ background: e.color ?? "rgba(139, 92, 246, 0.9)" }} aria-hidden />
+              <span className="kpi-tooltip-name">{name}</span>
+              <strong className="kpi-tooltip-value">{value}</strong>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Keep a single reference name for all charts.
+const compactTooltip = kpiTooltip;
 
 /** Keeps Recharts legends below axes without overlap (compact KPI cards). */
 const legendBottomCompact = {
@@ -51,7 +92,26 @@ const legendBottomCompact = {
 
 const axisTickSm = { fontSize: 10, fill: "#7d859d" };
 
-export function AgentMetricsDashboard() {
+function buildMetricSeries(_labelPrefix: string, end: number, start: number, points = 6) {
+  const arr: { label: string; value: number }[] = [];
+  for (let i = 0; i < points; i++) {
+    const t = i / Math.max(1, points - 1);
+    const v = start + (end - start) * t;
+    // Left->right as D-<points> .. D-1
+    arr.unshift({ label: `D-${points - i}`, value: v });
+  }
+  return arr;
+}
+
+export function AgentMetricsDashboard({
+  metrics = baseMetrics,
+  focusWidgetId,
+  onFocusHandled
+}: {
+  metrics?: readonly MetricItem[];
+  focusWidgetId?: string;
+  onFocusHandled?: () => void;
+}) {
   const [range, setRange] = useState<(typeof rangeOptions)[number]["id"]>("30d");
   const [openGroupMenu, setOpenGroupMenu] = useState<"business" | "product" | "system" | null>(null);
   const [enabledWidgets, setEnabledWidgets] = useState({
@@ -59,6 +119,8 @@ export function AgentMetricsDashboard() {
     product: ["taskSuccess", "escalation", "repeatContact"],
     system: ["intent", "latency", "rag"]
   });
+  const [ragExpanded, setRagExpanded] = useState(false);
+  const [ragZoom, setRagZoom] = useState<null | "accuracy" | "recall" | "faithfulness" | "context">(null);
 
   const headerSubtitle = useMemo(() => {
     if (range === "7d") return "Incident-aligned view: Taobao AI CS, last 7 days.";
@@ -82,11 +144,24 @@ export function AgentMetricsDashboard() {
 
   const foot = <p className="kpi-card-foot">{metricFooterHint}</p>;
 
+  // Deep-link focus from other modules (e.g. RAG workspace -> RAG widget).
+  // Uses the local widget id (e.g. "rag", "intent", "resolution").
+  useEffect(() => {
+    if (!focusWidgetId) return;
+    const t = window.setTimeout(() => {
+      const el = document.getElementById(`kpi-${focusWidgetId}`);
+      el?.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (focusWidgetId === "rag") setRagExpanded(true);
+      onFocusHandled?.();
+    }, 60);
+    return () => window.clearTimeout(t);
+  }, [focusWidgetId, onFocusHandled]);
+
   const renderWidget = (id: string) => {
     if (id === "resolution") {
-      const m = metricOf("resolution-rate");
+      const m = metricOf(metrics, "resolution-rate");
       return (
-        <article className="kpi-card kpi-critical">
+        <article className="kpi-card kpi-critical" id="kpi-resolution">
           <h4>Resolution Rate</h4>
           <div className="kpi-metric-row">
             <strong className="kpi-current">{m.current}</strong>
@@ -102,7 +177,7 @@ export function AgentMetricsDashboard() {
                 <CartesianGrid stroke="#3f1d1d" />
                 <XAxis dataKey="month" stroke="#fca5a5" tick={{ fontSize: 10, fill: "#fca5a5" }} height={22} />
                 <YAxis stroke="#fca5a5" tick={{ fontSize: 10, fill: "#fca5a5" }} width={32} />
-                <Tooltip />
+                <Tooltip content={compactTooltip} />
                 <Legend {...legendBottomCompact} />
                 <Area type="monotone" dataKey="resolved" stackId="1" stroke="#22d3ee" fill="#22d3ee66" name="Resolved %" />
                 <Area type="monotone" dataKey="unresolved" stackId="1" stroke="#ef4444" fill="#ef444466" name="Unresolved %" />
@@ -115,9 +190,9 @@ export function AgentMetricsDashboard() {
     }
 
     if (id === "nps") {
-      const m = metricOf("nps");
+      const m = metricOf(metrics, "nps");
       return (
-        <article className="kpi-card">
+        <article className="kpi-card" id="kpi-nps">
           <h4>NPS</h4>
           <div className="kpi-metric-row">
             <strong className="kpi-current">{m.current}</strong>
@@ -143,7 +218,7 @@ export function AgentMetricsDashboard() {
                   <Cell fill="#f59e0b" />
                   <Cell fill="#1f2937" />
                 </Pie>
-                <Tooltip />
+                <Tooltip content={compactTooltip} />
               </PieChart>
             </ResponsiveContainer>
             <span className="kpi-gauge-status">{npsGauge.status}</span>
@@ -154,10 +229,10 @@ export function AgentMetricsDashboard() {
     }
 
     if (id === "firstContact") {
-      const m = metricOf("first-contact-resolution");
+      const m = metricOf(metrics, "first-contact-resolution");
       const trendData = m.trend.map((t) => ({ label: t.label, value: t.value }));
       return (
-        <article className="kpi-card">
+        <article className="kpi-card" id="kpi-firstContact">
           <h4>First Contact Resolution</h4>
           <div className="kpi-metric-row">
             <strong className="kpi-current">{m.current}</strong>
@@ -170,7 +245,7 @@ export function AgentMetricsDashboard() {
                 <CartesianGrid stroke="#202431" />
                 <XAxis dataKey="label" stroke="#7d859d" fontSize={11} />
                 <YAxis stroke="#7d859d" fontSize={11} domain={["auto", "auto"]} />
-                <Tooltip />
+                <Tooltip content={compactTooltip} />
                 <Line type="monotone" dataKey="value" stroke="#38bdf8" strokeWidth={2} dot={false} name="FCR %" />
               </LineChart>
             </ResponsiveContainer>
@@ -181,9 +256,9 @@ export function AgentMetricsDashboard() {
     }
 
     if (id === "taskSuccess") {
-      const m = metricOf("task-success");
+      const m = metricOf(metrics, "task-success");
       return (
-        <article className="kpi-card">
+        <article className="kpi-card" id="kpi-taskSuccess">
           <h4>Task Success Rate</h4>
           <div className="kpi-metric-row">
             <strong className="kpi-current">{m.current}</strong>
@@ -193,7 +268,7 @@ export function AgentMetricsDashboard() {
           <div className="chart-shell">
             <ResponsiveContainer width="100%" height={230}>
               <FunnelChart>
-                <Tooltip />
+                <Tooltip content={compactTooltip} />
                 <Funnel dataKey="value" data={taskFunnel} isAnimationActive nameKey="stage">
                   {taskFunnel.map((item) => (
                     <Cell key={item.stage} fill="#22d3ee" />
@@ -208,9 +283,9 @@ export function AgentMetricsDashboard() {
     }
 
     if (id === "escalation") {
-      const m = metricOf("escalation");
+      const m = metricOf(metrics, "escalation");
       return (
-        <article className="kpi-card">
+        <article className="kpi-card" id="kpi-escalation">
           <h4>Escalation Rate</h4>
           <div className="kpi-metric-row">
             <strong className="kpi-current">{m.current}</strong>
@@ -224,7 +299,7 @@ export function AgentMetricsDashboard() {
                 <XAxis dataKey="label" stroke="#7d859d" tick={axisTickSm} interval={0} height={22} />
                 <YAxis yAxisId="left" stroke="#7d859d" tick={axisTickSm} width={36} />
                 <YAxis yAxisId="right" orientation="right" stroke="#7d859d" tick={axisTickSm} width={36} />
-                <Tooltip />
+                <Tooltip content={compactTooltip} />
                 <Legend {...legendBottomCompact} />
                 <Bar yAxisId="left" dataKey="sessions" fill="#22d3ee88" name="Escalated sessions" />
                 <Line
@@ -245,10 +320,10 @@ export function AgentMetricsDashboard() {
     }
 
     if (id === "repeatContact") {
-      const m = metricOf("repeat-contact-rate");
+      const m = metricOf(metrics, "repeat-contact-rate");
       const trendData = m.trend.map((t) => ({ label: t.label, value: t.value }));
       return (
-        <article className="kpi-card">
+        <article className="kpi-card" id="kpi-repeatContact">
           <h4>Repeat Contact Rate</h4>
           <div className="kpi-metric-row">
             <strong className="kpi-current">{m.current}</strong>
@@ -261,7 +336,7 @@ export function AgentMetricsDashboard() {
                 <CartesianGrid stroke="#202431" />
                 <XAxis dataKey="label" stroke="#7d859d" fontSize={11} />
                 <YAxis stroke="#7d859d" fontSize={11} />
-                <Tooltip />
+                <Tooltip content={compactTooltip} />
                 <Line type="monotone" dataKey="value" stroke="#fb7185" strokeWidth={2} dot name="Repeat %" />
               </LineChart>
             </ResponsiveContainer>
@@ -305,9 +380,9 @@ export function AgentMetricsDashboard() {
     }
 
     if (id === "latency") {
-      const m = metricOf("latency");
+      const m = metricOf(metrics, "latency");
       return (
-        <article className="kpi-card">
+        <article className="kpi-card" id="kpi-latency">
           <h4>System Latency (P50 / P95 / P99)</h4>
           <div className="kpi-metric-row">
             <strong className="kpi-current">{m.current}</strong>
@@ -320,7 +395,7 @@ export function AgentMetricsDashboard() {
                 <CartesianGrid stroke="#202431" />
                 <XAxis dataKey="label" stroke="#7d859d" tick={axisTickSm} height={22} />
                 <YAxis stroke="#7d859d" tick={axisTickSm} width={36} />
-                <Tooltip />
+                <Tooltip content={compactTooltip} />
                 <Legend {...legendBottomCompact} />
                 <Line type="monotone" dataKey="p50" stroke="#22d3ee" strokeWidth={2} dot={false} name="P50 (ms)" />
                 <Line type="monotone" dataKey="p95" stroke="#f59e0b" strokeWidth={2} dot={false} name="P95 (ms)" />
@@ -334,9 +409,9 @@ export function AgentMetricsDashboard() {
     }
 
     if (id === "intent") {
-      const m = metricOf("intent-accuracy");
+      const m = metricOf(metrics, "intent-accuracy");
       return (
-        <article className="kpi-card kpi-system-warn">
+        <article className="kpi-card" id="kpi-intent">
           <h4>Intent Accuracy</h4>
           <div className="kpi-metric-row">
             <strong className="kpi-current">{m.current}</strong>
@@ -359,10 +434,37 @@ export function AgentMetricsDashboard() {
     }
 
     if (id === "rag") {
-      const m = metricOf("rag-hit");
+      const m = metricOf(metrics, "rag-score");
+      const scoreSeries = m.trend.map((t) => ({ label: t.label, value: t.value }));
+      const recallSeries = buildMetricSeries("D-", ragMetrics.recall * 100, 58, 6);
+      const top1Series = buildMetricSeries("D-", ragMetrics.contextPrecision * 100, 72, 6);
+      const faithSeries = buildMetricSeries("D-", ragMetrics.faithfulness * 100, 76, 6);
+      const accSeries = buildMetricSeries("D-", ragMetrics.accuracy * 100, 74, 6);
+      const tooltipCompact = (props: TooltipContentProps<TooltipValue, string | number>) => {
+        const active = !!props?.active;
+        const payload = props?.payload?.[0];
+        const label = props?.label;
+        if (!active || !payload) return null;
+        const v = (payload as { value?: unknown }).value;
+        return (
+          <div className="kpi-tooltip kpi-tooltip--compact">
+            <div className="kpi-tooltip-row">
+              <span className="kpi-tooltip-label">{String(label ?? "")}</span>
+              <strong className="kpi-tooltip-value">
+                {typeof v === "number" ? v.toFixed(1) : typeof v === "string" ? v : String(v ?? "")}
+              </strong>
+            </div>
+          </div>
+        );
+      };
       return (
-        <article className="kpi-card">
-          <h4>RAG Hit Rate</h4>
+        <article className="kpi-card" id="kpi-rag">
+          <div className="kpi-head-row">
+            <h4>RAG Score</h4>
+            <button type="button" className="kpi-mini-link" onClick={() => setRagExpanded((v) => !v)}>
+              {ragExpanded ? "Hide sub-metrics" : "View 4 sub-metrics"}
+            </button>
+          </div>
           <div className="kpi-metric-row">
             <strong className="kpi-current">{m.current}</strong>
             <span className="kpi-target">{m.target}</span>
@@ -370,17 +472,125 @@ export function AgentMetricsDashboard() {
           </div>
           <div className="chart-shell">
             <ResponsiveContainer width="100%" height={210}>
-              <AreaChart data={ragHitSeries} margin={{ top: 6, right: 8, left: 0, bottom: 40 }}>
+              <LineChart data={scoreSeries} margin={{ top: 6, right: 8, left: 0, bottom: 36 }}>
                 <CartesianGrid stroke="#202431" />
                 <XAxis dataKey="label" stroke="#7d859d" tick={axisTickSm} height={22} />
                 <YAxis stroke="#7d859d" tick={axisTickSm} width={34} />
-                <Tooltip />
-                <Legend {...legendBottomCompact} />
-                <Area type="monotone" dataKey="hit" stackId="1" stroke="#22d3ee" fill="#22d3ee66" name="Hit %" />
-                <Area type="monotone" dataKey="miss" stackId="1" stroke="#ef4444" fill="#ef444455" name="Miss %" />
-              </AreaChart>
+                <Tooltip content={compactTooltip} />
+                <Line type="monotone" dataKey="value" stroke="#8b5cf6" strokeWidth={2.5} dot={false} name="RAG Score" />
+              </LineChart>
             </ResponsiveContainer>
           </div>
+          {ragExpanded ? (
+            <div className="kpi-rag-expand">
+              <div className="kpi-rag-grid">
+                <div className="kpi-rag-mini">
+                  <div className="kpi-rag-mini-head">
+                    <div className="kpi-rag-mini-title">
+                      <strong>Recall@5</strong>
+                      <span>{Math.round(ragMetrics.recall * 100)}%</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="kpi-zoom-btn"
+                      aria-label="Expand chart"
+                      onClick={() => setRagZoom("recall")}
+                    >
+                      <Maximize2 size={14} />
+                    </button>
+                  </div>
+                  <div className="kpi-rag-mini-chart">
+                    <ResponsiveContainer width="100%" height={72}>
+                      <LineChart data={recallSeries}>
+                        <XAxis dataKey="label" hide />
+                        <YAxis hide domain={[0, 100]} />
+                        <Tooltip content={tooltipCompact} />
+                        <Line type="monotone" dataKey="value" stroke="#f59e0b" strokeWidth={2} dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+                <div className="kpi-rag-mini">
+                  <div className="kpi-rag-mini-head">
+                    <div className="kpi-rag-mini-title">
+                      <strong>Top1 Accuracy</strong>
+                      <span>{Math.round(ragMetrics.contextPrecision * 100)}%</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="kpi-zoom-btn"
+                      aria-label="Expand chart"
+                      onClick={() => setRagZoom("context")}
+                    >
+                      <Maximize2 size={14} />
+                    </button>
+                  </div>
+                  <div className="kpi-rag-mini-chart">
+                    <ResponsiveContainer width="100%" height={72}>
+                      <LineChart data={top1Series}>
+                        <XAxis dataKey="label" hide />
+                        <YAxis hide domain={[0, 100]} />
+                        <Tooltip content={tooltipCompact} />
+                        <Line type="monotone" dataKey="value" stroke="#22d3ee" strokeWidth={2} dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+                <div className="kpi-rag-mini">
+                  <div className="kpi-rag-mini-head">
+                    <div className="kpi-rag-mini-title">
+                      <strong>Faithfulness</strong>
+                      <span>{Math.round(ragMetrics.faithfulness * 100)}%</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="kpi-zoom-btn"
+                      aria-label="Expand chart"
+                      onClick={() => setRagZoom("faithfulness")}
+                    >
+                      <Maximize2 size={14} />
+                    </button>
+                  </div>
+                  <div className="kpi-rag-mini-chart">
+                    <ResponsiveContainer width="100%" height={72}>
+                      <LineChart data={faithSeries}>
+                        <XAxis dataKey="label" hide />
+                        <YAxis hide domain={[0, 100]} />
+                        <Tooltip content={tooltipCompact} />
+                        <Line type="monotone" dataKey="value" stroke="#fb7185" strokeWidth={2} dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+                <div className="kpi-rag-mini">
+                  <div className="kpi-rag-mini-head">
+                    <div className="kpi-rag-mini-title">
+                      <strong>Accuracy</strong>
+                      <span>{Math.round(ragMetrics.accuracy * 100)}%</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="kpi-zoom-btn"
+                      aria-label="Expand chart"
+                      onClick={() => setRagZoom("accuracy")}
+                    >
+                      <Maximize2 size={14} />
+                    </button>
+                  </div>
+                  <div className="kpi-rag-mini-chart">
+                    <ResponsiveContainer width="100%" height={72}>
+                      <LineChart data={accSeries}>
+                        <XAxis dataKey="label" hide />
+                        <YAxis hide domain={[0, 100]} />
+                        <Tooltip content={tooltipCompact} />
+                        <Line type="monotone" dataKey="value" stroke="#a78bfa" strokeWidth={2} dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
           {foot}
         </article>
       );
@@ -396,7 +606,7 @@ export function AgentMetricsDashboard() {
                 <CartesianGrid stroke="#202431" />
                 <XAxis dataKey="label" stroke="#7d859d" />
                 <YAxis stroke="#7d859d" />
-                <Tooltip />
+                <Tooltip content={compactTooltip} />
                 <Line type="monotone" dataKey="rate" stroke="#f97316" strokeWidth={2} dot name="Proxy load %" />
               </LineChart>
             </ResponsiveContainer>
@@ -416,7 +626,7 @@ export function AgentMetricsDashboard() {
                 <CartesianGrid stroke="#202431" />
                 <XAxis dataKey="label" stroke="#7d859d" />
                 <YAxis stroke="#7d859d" />
-                <Tooltip />
+                <Tooltip content={compactTooltip} />
                 <Bar dataKey="sessions" fill="#60a5fa88" name="Sessions" />
                 <Line type="monotone" dataKey="rate" stroke="#f43f5e" strokeWidth={2} name="Rate %" />
               </ComposedChart>
@@ -437,6 +647,63 @@ export function AgentMetricsDashboard() {
 
   return (
     <section className="metrics-dashboard">
+      {ragZoom ? (
+        <div className="kpi-zoom-overlay" role="dialog" aria-modal="true">
+          <div className="kpi-zoom-modal">
+            <div className="kpi-zoom-head">
+              <h4>
+                {ragZoom === "accuracy"
+                  ? "Accuracy"
+                  : ragZoom === "recall"
+                    ? "Recall@5"
+                    : ragZoom === "faithfulness"
+                      ? "Faithfulness"
+                      : "Top1 Accuracy"}
+              </h4>
+              <button type="button" className="kpi-zoom-close" onClick={() => setRagZoom(null)} aria-label="Close">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="kpi-zoom-chart">
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart
+                  data={
+                    ragZoom === "accuracy"
+                      ? buildMetricSeries("D-", ragMetrics.accuracy * 100, 74, 12)
+                      : ragZoom === "recall"
+                        ? buildMetricSeries("D-", ragMetrics.recall * 100, 58, 12)
+                        : ragZoom === "faithfulness"
+                          ? buildMetricSeries("D-", ragMetrics.faithfulness * 100, 76, 12)
+                          : buildMetricSeries("D-", ragMetrics.contextPrecision * 100, 72, 12)
+                  }
+                  margin={{ top: 10, right: 12, left: 0, bottom: 10 }}
+                >
+                  <CartesianGrid stroke="#202431" />
+                  <XAxis dataKey="label" stroke="#7d859d" tick={axisTickSm} height={18} />
+                  <YAxis stroke="#7d859d" tick={axisTickSm} domain={[0, 100]} width={36} />
+                  <Tooltip
+                    content={(p: TooltipContentProps<TooltipValue, string | number>) => {
+                      if (!p?.active || !p?.payload?.[0]) return null;
+                      const v = (p.payload[0] as { value?: unknown }).value;
+                      return (
+                        <div className="kpi-tooltip">
+                          <div className="kpi-tooltip-row">
+                            <span className="kpi-tooltip-label">{String(p.label ?? "")}</span>
+                            <strong className="kpi-tooltip-value">
+                              {typeof v === "number" ? v.toFixed(1) : typeof v === "string" ? v : String(v ?? "")}
+                            </strong>
+                          </div>
+                        </div>
+                      );
+                    }}
+                  />
+                  <Line type="monotone" dataKey="value" stroke="#8b5cf6" strokeWidth={2.5} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <header className="metrics-dash-header">
         <div className="metrics-filter">
           <label>

@@ -27,11 +27,11 @@ import {
   DEMO_AFFECTED_SESSIONS,
   ingestionApiExample,
   ingestionTraceExample,
+  metrics as baseMetrics,
   patterns,
   expectedBusinessImpact,
   fixBeforeAfterConversations,
   type FixConversationCard,
-  ragOptimizationAssistant,
   rootCauseDrivers,
   sessionReplays,
   sessionReplaysMore,
@@ -39,6 +39,8 @@ import {
 import { AppHeaderBar } from "@/components/layout/AppHeaderBar";
 import { AgentMetricsDashboard } from "@/components/sections/AgentMetricsDashboard";
 import { AskAgentSidebar } from "@/components/sections/AskAgentSidebar";
+import { RagOptimizationWorkspace } from "@/components/sections/RagOptimizationWorkspace";
+import type { TooltipContentProps } from "recharts";
 
 const navItems = [
   { id: "connect", label: "Connect Agent", icon: PlugZap },
@@ -48,7 +50,7 @@ const navItems = [
   { id: "opt", label: "Impact Simulation", icon: Target }
 ] as const;
 
-type NavId = (typeof navItems)[number]["id"];
+type NavId = (typeof navItems)[number]["id"] | "rag";
 
 export function StudioApp() {
   const [activeNav, setActiveNav] = useState<NavId>("connect");
@@ -62,10 +64,13 @@ export function StudioApp() {
   const [sessionDialogueOpen, setSessionDialogueOpen] = useState<Record<string, boolean>>({});
   const [openActionCardId, setOpenActionCardId] = useState<string | null>(null);
   const [selectedActionOption, setSelectedActionOption] = useState<ActionOptionId | null>(null);
-  const [ragDrawerOpen, setRagDrawerOpen] = useState(false);
   const [appliedOptimizations, setAppliedOptimizations] = useState<Partial<Record<ActionOptionId, boolean>>>({});
   const [appliedCause, setAppliedCause] = useState<Partial<Record<string, boolean>>>({});
   const [fixVariantIndex, setFixVariantIndex] = useState<Record<string, number>>({});
+  const [ragImpact, setRagImpact] = useState<{ intentAccuracyDelta: number; resolutionDelta: number; ragHitRateDelta: number } | null>(
+    null
+  );
+  const [metricsFocusWidgetId, setMetricsFocusWidgetId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!highlightSessionId) return;
@@ -117,26 +122,29 @@ export function StudioApp() {
     setAppliedCause((prev) => ({ ...prev, [causeId]: true }));
   };
 
+  const ragApplied = !!appliedOptimizations["rag-retrieval"];
+
   const appliedCount = Object.values(appliedCause).filter(Boolean).length;
   const simAfter = useMemo(() => {
     // Deterministic mapping: full uplift only when all three causes have at least one applied optimization.
     const full = appliedCount >= 3;
     const some = appliedCount > 0;
+    const ragOnly = appliedCount === 1 && ragApplied && !!ragImpact;
     return {
-      resolution: full ? "80%" : some ? "70%" : "--",
-      intentAccuracy: full ? "96%" : some ? "84%" : "--",
+      resolution: full ? "80%" : ragOnly ? `${62 + ragImpact!.resolutionDelta}%` : some ? "70%" : "--",
+      intentAccuracy: full ? "96%" : ragOnly ? `${76 + ragImpact!.intentAccuracyDelta}%` : some ? "84%" : "--",
       escalation: full ? "13%" : some ? "20%" : "--",
       sessionLength: full ? "5.1 min" : some ? "6.8 min" : "--",
       satisfaction: full ? "4.5/5" : some ? "4.1/5" : "--",
       apiTimeout: full ? "3%" : some ? "9%" : "--",
       resolutionUplift: full ? "+18%" : some ? "+8%" : "apply actions",
-      intentUplift: full ? "+20%" : some ? "+8%" : "apply actions",
+      intentUplift: full ? "+20%" : ragOnly ? `+${ragImpact!.intentAccuracyDelta}%` : some ? "+8%" : "apply actions",
       escalationUplift: full ? "-15%" : some ? "-8%" : "apply actions",
       sessionUplift: full ? "-38%" : some ? "-17%" : "apply actions",
       satisfactionUplift: full ? "+41%" : some ? "+28%" : "apply actions",
       apiTimeoutUplift: full ? "-75%" : some ? "-50%" : "apply actions"
     };
-  }, [appliedCount]);
+  }, [appliedCount, ragApplied, ragImpact]);
 
   const toggleSessionDialogue = (id: string) => {
     setSessionDialogueOpen((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -184,7 +192,7 @@ export function StudioApp() {
         <Panel defaultSize={58} minSize={36} className="panel-shell panel-main">
           <main className="content-wrap">
 
-        {activeNav !== "connect" && activeNav !== "opt" && (
+        {activeNav !== "connect" && activeNav !== "opt" && activeNav !== "rag" && (
           <section className="alert-banner">
             <div className="alert-left">
               <div className="alert-icon-wrap">
@@ -304,9 +312,30 @@ export function StudioApp() {
           <>
             <section className="panel">
               <h2>Key Metrics Overview</h2>
-              <AgentMetricsDashboard />
+              <AgentMetricsDashboard
+                metrics={baseMetrics}
+                focusWidgetId={metricsFocusWidgetId ?? undefined}
+                onFocusHandled={() => setMetricsFocusWidgetId(null)}
+              />
             </section>
           </>
+        )}
+
+        {ingested && activeNav === "rag" && (
+          <section className="panel rag-panel">
+            <RagOptimizationWorkspace
+              applied={ragApplied}
+              onClose={() => setActiveNav("root")}
+              onOpenMetrics={() => {
+                setActiveNav("metrics");
+                setMetricsFocusWidgetId("rag");
+              }}
+              onApplyOptimization={(impact) => {
+                setRagImpact(impact);
+                applyOptimization("intent-misclassification", "rag-retrieval");
+              }}
+            />
+          </section>
         )}
 
         {ingested && activeNav === "patterns" && (
@@ -320,7 +349,24 @@ export function StudioApp() {
                     <CartesianGrid stroke="#202431" />
                     <XAxis dataKey="label" stroke="#6e7388" tick={{ fontSize: 11 }} />
                     <YAxis stroke="#6e7388" domain={[58, 86]} tick={{ fontSize: 11 }} />
-                    <Tooltip />
+                    <Tooltip
+                      content={(p: TooltipContentProps<number | string | readonly (number | string)[], string | number>) => {
+                        if (!p?.active || !p?.payload?.[0]) return null;
+                        const v = p.payload[0].value;
+                        return (
+                          <div className="kpi-tooltip">
+                            <div className="kpi-tooltip-title">{String(p.label ?? "")}</div>
+                            <div className="kpi-tooltip-lines">
+                              <div className="kpi-tooltip-line">
+                                <span className="kpi-tooltip-dot" style={{ background: p.payload[0].color ?? "rgba(139, 92, 246, 0.9)" }} aria-hidden />
+                                <span className="kpi-tooltip-name">{String(p.payload[0].name ?? "Resolution %")}</span>
+                                <strong className="kpi-tooltip-value">{typeof v === "number" ? v.toFixed(0) : String(v ?? "")}</strong>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }}
+                    />
                     <Line type="monotone" dataKey="value" stroke="#8b5cf6" strokeWidth={2} dot name="Resolution %" />
                   </LineChart>
                 </ResponsiveContainer>
@@ -584,7 +630,7 @@ export function StudioApp() {
                                     className={`ac-option ${selected ? "ac-option--active" : ""} ${applied ? "ac-option--applied" : ""}`}
                                     onClick={() => {
                                       setSelectedActionOption(opt.id);
-                                      if (opt.kind === "drawer") setRagDrawerOpen(true);
+                                      if (opt.id === "rag-retrieval") setActiveNav("rag");
                                     }}
                                   >
                                     {opt.label}
@@ -613,67 +659,7 @@ export function StudioApp() {
               })()}
             </article>
 
-            {ragDrawerOpen && (
-              <div className="ac-drawer-overlay" role="dialog" aria-modal="true">
-                <div className="ac-drawer">
-                  <div className="ac-drawer-head">
-                    <h3>{ragOptimizationAssistant.title}</h3>
-                    <button type="button" className="ac-drawer-close" onClick={() => setRagDrawerOpen(false)}>
-                      Close
-                    </button>
-                  </div>
-                  <div className="ac-drawer-body">
-                    <div className="ac-drawer-block">
-                      <h4>Current issue</h4>
-                      <ul>
-                        {ragOptimizationAssistant.currentIssues.map((i) => (
-                          <li key={i}>{i}</li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div className="ac-drawer-block">
-                      <h4>Recommendations</h4>
-                      <ul>
-                        {ragOptimizationAssistant.suggestions.map((s) => (
-                          <li key={s}>{s}</li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div className="ac-compare ac-compare--drawer">
-                      <div className="ac-compare-col">
-                        <h5>Before</h5>
-                        <pre>{`User: ${ragOptimizationAssistant.before.query}\nRetrieval: ${ragOptimizationAssistant.before.result}`}</pre>
-                      </div>
-                      <div className="ac-compare-col">
-                        <h5>After</h5>
-                        <pre>{`Retrieval: ${ragOptimizationAssistant.after.result}`}</pre>
-                      </div>
-                    </div>
-                    <div className="ac-drawer-block">
-                      <h4>Expected metric change</h4>
-                      <ul>
-                        {ragOptimizationAssistant.metricChanges.map((m) => (
-                          <li key={m}>{m}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                  <div className="ac-drawer-foot">
-                    <button
-                      type="button"
-                      className="primary"
-                      disabled={!!appliedOptimizations["rag-retrieval"]}
-                      onClick={() => {
-                        applyOptimization("intent-misclassification", "rag-retrieval");
-                        setRagDrawerOpen(false);
-                      }}
-                    >
-                      {appliedOptimizations["rag-retrieval"] ? "Applied" : "Apply Optimization"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* RAG retrieval is now handled by the full RAG Optimization Workspace page. */}
           </section>
         )}
 
@@ -822,6 +808,10 @@ export function StudioApp() {
             }}
             onOpenActionCenter={(causeId) => openActionCenterFor(causeId)}
             onOpenSolutionRoadmap={() => setActiveNav("root")}
+            onOpenRagWorkspace={() => {
+              if (!ingested) return;
+              setActiveNav("rag");
+            }}
           />
         </Panel>
       </PanelGroup>

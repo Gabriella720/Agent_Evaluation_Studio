@@ -9,6 +9,19 @@ export const DEMO_RESOLUTION_DROP = "20%";
 export const DEMO_AFFECTED_SESSIONS = "1,247";
 export const METRIC_DRIVER_HINT = "Driven by intent misclassification & tool failures";
 
+export type RagMetrics = {
+  /** Composite score (0-100) */
+  score: number;
+  /** Answer accuracy on eval set (0-1) */
+  accuracy: number;
+  /** Retrieval recall@5 on eval set (0-1) */
+  recall: number;
+  /** Faithfulness / groundedness (0-1) */
+  faithfulness: number;
+  /** Context precision (0-1) */
+  contextPrecision: number;
+};
+
 export type TrendPoint = {
   label: string;
   value: number;
@@ -82,6 +95,15 @@ export const resolutionRate24hTrend: TrendPoint[] = [
   { label: "16:00", value: 68 },
   { label: "20:00", value: 62 }
 ];
+
+/** RAG workspace initial eval snapshot (single source of truth). */
+export const ragMetrics: RagMetrics = {
+  score: 62,
+  accuracy: 0.68,
+  recall: 0.42,
+  faithfulness: 0.71,
+  contextPrecision: 0.65
+};
 
 export const metrics: MetricItem[] = [
   {
@@ -222,21 +244,21 @@ export const metrics: MetricItem[] = [
     ]
   },
   {
-    id: "rag-hit",
+    id: "rag-score",
     group: "System",
-    name: "RAG Hit Rate",
-    current: "78%",
-    target: "/ 92%",
-    delta: "-9%",
+    name: "RAG Score",
+    current: "62",
+    target: "/ 80",
+    delta: "-18",
     status: "down",
     impactHint: METRIC_DRIVER_HINT,
     trend: [
-      { label: "D-6", value: 92 },
-      { label: "D-5", value: 90 },
-      { label: "D-4", value: 88 },
-      { label: "D-3", value: 85 },
-      { label: "D-2", value: 81 },
-      { label: "D-1", value: 78 }
+      { label: "D-6", value: 78 },
+      { label: "D-5", value: 74 },
+      { label: "D-4", value: 70 },
+      { label: "D-3", value: 67 },
+      { label: "D-2", value: 64 },
+      { label: "D-1", value: 62 }
     ]
   }
 ];
@@ -691,4 +713,17 @@ export function isAskResolutionDropQuestion(text: string): boolean {
   if (n.includes("three verified failure")) return true;
   if (n.includes("driver") && n.includes("resolution") && n.includes("gap")) return true;
   return askTriggerQuestionsNormalized.some((q) => n.includes(q) || n === q);
+}
+
+export function isAskRagOptimizationQuestion(text: string): boolean {
+  const n = normalizeAskQuestion(text);
+  return (
+    n.includes("optimize rag") ||
+    n.includes("improve rag") ||
+    n.includes("rag optimization") ||
+    n.includes("rag workspace") ||
+    (n.includes("improve") && n.includes("retrieval")) ||
+    n.includes("如何优化rag") ||
+    n.includes("怎么优化rag")
+  );
 }
