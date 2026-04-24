@@ -419,6 +419,7 @@
   color: rgba(180, 188, 210, 0.95);
 }
 .kpi-tooltip-value {
+  font-size: 10px;
   font-weight: 700;
 }
 
@@ -2441,12 +2442,8 @@ pre {
   align-items: center;
 }
 
-.kpi-gauge strong {
-  font-size: 40px;
-  line-height: 1;
-}
-
-.kpi-gauge span {
+/* Only the status line under the chart; avoid styling Recharts tooltip spans inside the wrapper. */
+.kpi-gauge > span {
   margin-top: -6px;
   color: #84cc16;
   font-size: 12px;

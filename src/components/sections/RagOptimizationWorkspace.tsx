@@ -147,12 +147,12 @@ function reducer(state: WorkspaceState, action: Action): WorkspaceState {
 }
 
 function stepTitle(id: StepId) {
-  if (id === "step0") return "Step 0 — Data readiness check";
-  if (id === "step1") return "Step 1 — Retrieval optimization";
-  if (id === "step2") return "Step 2 — Rerank optimization";
-  if (id === "step3") return "Step 3 — Context optimization";
-  if (id === "step4") return "Step 4 — Generation optimization";
-  return "Step 5 — End-to-end evaluation";
+  if (id === "step0") return "Step 0 — Data Readiness Check";
+  if (id === "step1") return "Step 1 — Retrieval Optimization";
+  if (id === "step2") return "Step 2 — Rerank Optimization";
+  if (id === "step3") return "Step 3 — Context Optimization";
+  if (id === "step4") return "Step 4 — Generation Optimization";
+  return "Step 5 — End-to-End Evaluation";
 }
 
 function stepDiagnosis(id: StepId, m: RagMetrics) {
@@ -195,7 +195,7 @@ function stepMetrics(id: StepId, m: RagMetrics) {
       { label: "Accuracy", value: formatPct01(m.accuracy) }
     ];
   return [
-    { label: "Chunk coverage", value: m.recall < 0.5 ? "Low" : "OK" },
+    { label: "Chunk Coverage", value: m.recall < 0.5 ? "Low" : "OK" },
     { label: "Data quality", value: "OK" }
   ];
 }
@@ -304,7 +304,7 @@ function ResultComparison({
       <div className="rag-result-head">
         <div className="rag-result-head-left">
           <div className="rag-result-title">
-            <Sparkles size={14} />
+            <Sparkles size={25} />
             <span>RAG Score</span>
             <span className="rag-result-score">{before.score}</span>
           </div>
@@ -475,49 +475,49 @@ export function RagOptimizationWorkspace({ onClose, onOpenMetrics, onApplyOptimi
     await step(
       "step1",
       "chunkSize",
-      "Chunk size → 350 tokens",
+      "Chunk Size → 350 Tokens",
       { recall: Math.max(cur.recall, 0.55), contextPrecision: cur.contextPrecision + 0.02 },
       `Recall@5: ${formatPct01(state.current.recall)} → ${formatPct01(Math.max(state.current.recall, 0.55))} ↑`
     );
     await step(
       "step1",
       "embedding",
-      "Embedding → bilingual-v2",
+      "Embedding → Bilingual-v2",
       { recall: Math.max(cur.recall, 0.62), accuracy: Math.min(1, cur.accuracy + 0.03) },
       `Recall@5: ${formatPct01(Math.max(state.current.recall, 0.55))} → ${formatPct01(Math.max(cur.recall, 0.62))} ↑`
     );
     await step(
       "step1",
       "queryRewrite",
-      "Query rewrite enabled",
+      "Query Rewrite Enabled",
       { recall: Math.max(cur.recall, 0.68), accuracy: Math.max(cur.accuracy, 0.78) },
       `Recall@5: ${formatPct01(Math.max(cur.recall, 0.62))} → ${formatPct01(Math.max(cur.recall, 0.68))} ↑`
     );
     await step(
       "step2",
       "rerank",
-      "Rerank enabled",
+      "Rerank Enabled",
       { contextPrecision: Math.max(cur.contextPrecision, 0.7), accuracy: Math.min(1, cur.accuracy + 0.02) },
       `Context Precision: ${formatPct01(state.current.contextPrecision)} → ${formatPct01(Math.max(cur.contextPrecision, 0.7))} ↑`
     );
     await step(
       "step3",
       "context",
-      "Context policy updated",
+      "Context Policy Updated",
       { contextPrecision: Math.max(cur.contextPrecision, 0.74), faithfulness: Math.min(1, cur.faithfulness + 0.01) },
       `Context Precision: ${formatPct01(Math.max(cur.contextPrecision, 0.7))} → ${formatPct01(Math.max(cur.contextPrecision, 0.74))} ↑`
     );
     await step(
       "step4",
       "generation",
-      "Grounded prompt enabled",
+      "Grounded Prompt Enabled",
       { faithfulness: Math.max(cur.faithfulness, 0.76), accuracy: Math.min(1, cur.accuracy + 0.01) },
       `Faithfulness: ${formatPct01(state.current.faithfulness)} → ${formatPct01(Math.max(cur.faithfulness, 0.76))} ↑`
     );
     await step(
       "step5",
       "e2e",
-      "E2E evaluation complete",
+      "E2E Evaluation Complete",
       { score: Math.max(cur.score, compositeScore(cur) + 6), accuracy: Math.max(cur.accuracy, 0.8) },
       `RAG Score: ${state.current.score} → ${Math.max(cur.score, compositeScore(cur) + 6)} ↑`
     );

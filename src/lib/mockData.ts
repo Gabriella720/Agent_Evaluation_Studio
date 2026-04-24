@@ -127,12 +127,12 @@ export const metrics: MetricItem[] = [
     status: "down",
     impactHint: METRIC_DRIVER_HINT,
     trend: [
-      { label: "D-6", value: 48 },
-      { label: "D-5", value: 46 },
-      { label: "D-4", value: 44 },
-      { label: "D-3", value: 41 },
-      { label: "D-2", value: 38 },
-      { label: "D-1", value: 34 }
+      { label: "d1", value: 48 },
+      { label: "d2", value: 46 },
+      { label: "d3", value: 44 },
+      { label: "d4", value: 41 },
+      { label: "d5", value: 38 },
+      { label: "d6", value: 34 }
     ]
   },
   {
@@ -145,12 +145,12 @@ export const metrics: MetricItem[] = [
     status: "down",
     impactHint: METRIC_DRIVER_HINT,
     trend: [
-      { label: "D-6", value: 74 },
-      { label: "D-5", value: 72 },
-      { label: "D-4", value: 69 },
-      { label: "D-3", value: 66 },
-      { label: "D-2", value: 62 },
-      { label: "D-1", value: 58 }
+      { label: "d1", value: 74 },
+      { label: "d2", value: 72 },
+      { label: "d3", value: 69 },
+      { label: "d4", value: 66 },
+      { label: "d5", value: 62 },
+      { label: "d6", value: 58 }
     ]
   },
   {
@@ -163,12 +163,12 @@ export const metrics: MetricItem[] = [
     status: "down",
     impactHint: METRIC_DRIVER_HINT,
     trend: [
-      { label: "D-6", value: 86 },
-      { label: "D-5", value: 84 },
-      { label: "D-4", value: 82 },
-      { label: "D-3", value: 79 },
-      { label: "D-2", value: 75 },
-      { label: "D-1", value: 71 }
+      { label: "d1", value: 86 },
+      { label: "d2", value: 84 },
+      { label: "d3", value: 82 },
+      { label: "d4", value: 79 },
+      { label: "d5", value: 75 },
+      { label: "d6", value: 71 }
     ]
   },
   {
@@ -181,12 +181,12 @@ export const metrics: MetricItem[] = [
     status: "warn",
     impactHint: METRIC_DRIVER_HINT,
     trend: [
-      { label: "D-6", value: 16 },
-      { label: "D-5", value: 18 },
-      { label: "D-4", value: 20 },
-      { label: "D-3", value: 23 },
-      { label: "D-2", value: 26 },
-      { label: "D-1", value: 28 }
+      { label: "d1", value: 16 },
+      { label: "d2", value: 18 },
+      { label: "d3", value: 20 },
+      { label: "d4", value: 23 },
+      { label: "d5", value: 26 },
+      { label: "d6", value: 28 }
     ]
   },
   {
@@ -199,12 +199,12 @@ export const metrics: MetricItem[] = [
     status: "warn",
     impactHint: METRIC_DRIVER_HINT,
     trend: [
-      { label: "D-6", value: 11 },
-      { label: "D-5", value: 12 },
-      { label: "D-4", value: 14 },
-      { label: "D-3", value: 17 },
-      { label: "D-2", value: 20 },
-      { label: "D-1", value: 22 }
+      { label: "d1", value: 11 },
+      { label: "d2", value: 12 },
+      { label: "d3", value: 14 },
+      { label: "d4", value: 17 },
+      { label: "d5", value: 20 },
+      { label: "d6", value: 22 }
     ]
   },
   {
@@ -217,12 +217,12 @@ export const metrics: MetricItem[] = [
     status: "down",
     impactHint: METRIC_DRIVER_HINT,
     trend: [
-      { label: "D-6", value: 94 },
-      { label: "D-5", value: 91 },
-      { label: "D-4", value: 88 },
-      { label: "D-3", value: 84 },
-      { label: "D-2", value: 80 },
-      { label: "D-1", value: 76 }
+      { label: "d1", value: 94 },
+      { label: "d2", value: 91 },
+      { label: "d3", value: 88 },
+      { label: "d4", value: 84 },
+      { label: "d5", value: 80 },
+      { label: "d6", value: 76 }
     ]
   },
   {
@@ -235,12 +235,12 @@ export const metrics: MetricItem[] = [
     status: "warn",
     impactHint: METRIC_DRIVER_HINT,
     trend: [
-      { label: "D-6", value: 0.62 },
-      { label: "D-5", value: 0.71 },
-      { label: "D-4", value: 0.8 },
-      { label: "D-3", value: 0.9 },
-      { label: "D-2", value: 1.05 },
-      { label: "D-1", value: 1.2 }
+      { label: "d1", value: 0.62 },
+      { label: "d2", value: 0.71 },
+      { label: "d3", value: 0.8 },
+      { label: "d4", value: 0.9 },
+      { label: "d5", value: 1.05 },
+      { label: "d6", value: 1.2 }
     ]
   },
   {
@@ -253,12 +253,12 @@ export const metrics: MetricItem[] = [
     status: "down",
     impactHint: METRIC_DRIVER_HINT,
     trend: [
-      { label: "D-6", value: 78 },
-      { label: "D-5", value: 74 },
-      { label: "D-4", value: 70 },
-      { label: "D-3", value: 67 },
-      { label: "D-2", value: 64 },
-      { label: "D-1", value: 62 }
+      { label: "d1", value: 78 },
+      { label: "d2", value: 74 },
+      { label: "d3", value: 70 },
+      { label: "d4", value: 67 },
+      { label: "d5", value: 64 },
+      { label: "d6", value: 62 }
     ]
   }
 ];
@@ -424,7 +424,7 @@ export const expectedBusinessImpact = [
 export const fixBeforeAfterConversations = [
   {
     id: "fix-intent",
-    title: "Intent misclassification fix",
+    title: "Intent Misclassification Fix",
     before: { role: "User", text: "When will my order ship?" },
     beforeAgent: { role: "Agent", text: "You can request a refund here." },
     after: { role: "User", text: "When will my order ship?" },
@@ -452,7 +452,7 @@ export const fixBeforeAfterConversations = [
   },
   {
     id: "fix-tool",
-    title: "Tool failure fix (fallback)",
+    title: "Tool Failure Fix (Fallback)",
     before: { role: "User", text: "Check my order status for me" },
     beforeAgent: { role: "Agent", text: "Still checking… please try again shortly." },
     after: { role: "User", text: "Check my order status for me" },
@@ -480,7 +480,7 @@ export const fixBeforeAfterConversations = [
   },
   {
     id: "fix-reasoning",
-    title: "Reasoning fix (multi-step)",
+    title: "Reasoning Fix (Multi-step)",
     before: { role: "User", text: "I need to change my address and expedite shipping" },
     beforeAgent: { role: "Agent", text: "You can update your shipping address in settings." },
     after: { role: "User", text: "I need to change my address and expedite shipping" },
@@ -527,17 +527,17 @@ export type FixConversationCard = {
 export const cohortReplays: CohortReplay[] = [
   {
     id: "intent-misclassification",
-    title: "Cohort 1 — Intent error",
+    title: "Cohort 1 — Intent Error",
     path: "Shipping question → misclassified as refund → wrong answer → repeat questions → unresolved"
   },
   {
     id: "tool-failure",
-    title: "Cohort 2 — Tool failure",
+    title: "Cohort 2 — Tool Failure",
     path: "Order lookup → API failure → vague reply → user exits"
   },
   {
     id: "reasoning-failure",
-    title: "Cohort 3 — Reasoning failure",
+    title: "Cohort 3 — Reasoning Failure",
     path: "Multi-intent request → partial understanding → incomplete answer → user abandons"
   }
 ];

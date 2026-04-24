@@ -523,7 +523,7 @@ export function StudioApp() {
                   <CircleAlert size={16} />
                 </div>
                 <div>
-                  <h2>Root causes (click to act)</h2>
+                  <h2>Root Causes (click to act)</h2>
                   <p>Diagnosed from {DEMO_AFFECTED_SESSIONS} sessions</p>
                 </div>
               </header>
@@ -766,7 +766,7 @@ export function StudioApp() {
                         setFixVariantIndex((prev) => ({ ...prev, [c.id]: ((prev[c.id] ?? 0) + 1) % total }));
                       }}
                     >
-                      View more dialogue
+                      View more Dialogues
                     </button>
                         </>
                       );

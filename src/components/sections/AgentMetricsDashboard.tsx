@@ -92,16 +92,23 @@ const legendBottomCompact = {
 
 const axisTickSm = { fontSize: 10, fill: "#7d859d" };
 
-function buildMetricSeries(_labelPrefix: string, end: number, start: number, points = 6) {
+/** Linear series left→right as d1 .. d{points} (chronological window). */
+function buildMetricSeries(_labelPrefix: string, startValue: number, endValue: number, points = 6) {
   const arr: { label: string; value: number }[] = [];
   for (let i = 0; i < points; i++) {
     const t = i / Math.max(1, points - 1);
-    const v = start + (end - start) * t;
-    // Left->right as D-<points> .. D-1
-    arr.unshift({ label: `D-${points - i}`, value: v });
+    const v = startValue + (endValue - startValue) * t;
+    arr.push({ label: `d${i + 1}`, value: v });
   }
   return arr;
 }
+
+const ragSubMetricEndPct = {
+  recall: ragMetrics.recall * 100,
+  top1: ragMetrics.contextPrecision * 100,
+  faithfulness: ragMetrics.faithfulness * 100,
+  accuracy: ragMetrics.accuracy * 100
+} as const;
 
 export function AgentMetricsDashboard({
   metrics = baseMetrics,
@@ -436,10 +443,25 @@ export function AgentMetricsDashboard({
     if (id === "rag") {
       const m = metricOf(metrics, "rag-score");
       const scoreSeries = m.trend.map((t) => ({ label: t.label, value: t.value }));
-      const recallSeries = buildMetricSeries("D-", ragMetrics.recall * 100, 58, 6);
-      const top1Series = buildMetricSeries("D-", ragMetrics.contextPrecision * 100, 72, 6);
-      const faithSeries = buildMetricSeries("D-", ragMetrics.faithfulness * 100, 76, 6);
-      const accSeries = buildMetricSeries("D-", ragMetrics.accuracy * 100, 74, 6);
+      const recallSeries = buildMetricSeries(
+        "",
+        Math.min(96, ragSubMetricEndPct.recall + 16),
+        ragSubMetricEndPct.recall,
+        6
+      );
+      const top1Series = buildMetricSeries("", Math.min(96, ragSubMetricEndPct.top1 + 14), ragSubMetricEndPct.top1, 6);
+      const faithSeries = buildMetricSeries(
+        "",
+        Math.min(96, ragSubMetricEndPct.faithfulness + 12),
+        ragSubMetricEndPct.faithfulness,
+        6
+      );
+      const accSeries = buildMetricSeries(
+        "",
+        Math.min(96, ragSubMetricEndPct.accuracy + 12),
+        ragSubMetricEndPct.accuracy,
+        6
+      );
       const tooltipCompact = (props: TooltipContentProps<TooltipValue, string | number>) => {
         const active = !!props?.active;
         const payload = props?.payload?.[0];
@@ -669,12 +691,17 @@ export function AgentMetricsDashboard({
                 <LineChart
                   data={
                     ragZoom === "accuracy"
-                      ? buildMetricSeries("D-", ragMetrics.accuracy * 100, 74, 12)
+                      ? buildMetricSeries("", Math.min(96, ragSubMetricEndPct.accuracy + 14), ragSubMetricEndPct.accuracy, 12)
                       : ragZoom === "recall"
-                        ? buildMetricSeries("D-", ragMetrics.recall * 100, 58, 12)
+                        ? buildMetricSeries("", Math.min(96, ragSubMetricEndPct.recall + 18), ragSubMetricEndPct.recall, 12)
                         : ragZoom === "faithfulness"
-                          ? buildMetricSeries("D-", ragMetrics.faithfulness * 100, 76, 12)
-                          : buildMetricSeries("D-", ragMetrics.contextPrecision * 100, 72, 12)
+                          ? buildMetricSeries(
+                              "",
+                              Math.min(96, ragSubMetricEndPct.faithfulness + 14),
+                              ragSubMetricEndPct.faithfulness,
+                              12
+                            )
+                          : buildMetricSeries("", Math.min(96, ragSubMetricEndPct.top1 + 16), ragSubMetricEndPct.top1, 12)
                   }
                   margin={{ top: 10, right: 12, left: 0, bottom: 10 }}
                 >
@@ -737,7 +764,7 @@ export function AgentMetricsDashboard({
             <div className="metric-add-wrap">
               <button type="button" className="metric-add-btn" onClick={() => setOpenGroupMenu((prev) => (prev === group.key ? null : group.key))}>
                 <Plus size={14} />
-                Add metric
+                Add Metric
               </button>
               {openGroupMenu === group.key && (
                 <div className="metric-add-menu">
