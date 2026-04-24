@@ -1,13 +1,13 @@
 /**
  * Unified demo narrative (English UI):
  * Taobao AI CS — resolution rate down 20% in the last 24h.
- * Only three root drivers: Intent Misclassification (40% / -8pp), Tool Failure (35% / -7pp), Reasoning Failure (25% / -5pp).
+ * Only three root drivers: Intent MisUnderstanding (40% / -8pp), Tool Failure (35% / -7pp), Reasoning Failure (25% / -5pp).
  */
 
 export const DEMO_CASE_TITLE = "Taobao AI Customer Service";
 export const DEMO_RESOLUTION_DROP = "20%";
 export const DEMO_AFFECTED_SESSIONS = "1,247";
-export const METRIC_DRIVER_HINT = "Driven by intent misclassification & tool failures";
+export const METRIC_DRIVER_HINT = "Driven by intent misunderstanding & tool failures";
 
 export type RagMetrics = {
   /** Composite score (0-100) */
@@ -264,7 +264,7 @@ export const metrics: MetricItem[] = [
 ];
 
 export const resolutionImpactBreakdown = [
-  { label: "Intent misclassification", value: "-8%" },
+  { label: "Intent misunderstanding", value: "-8%" },
   { label: "Tool failure", value: "-7%" },
   { label: "Reasoning failure", value: "-5%" }
 ] as const;
@@ -272,7 +272,7 @@ export const resolutionImpactBreakdown = [
 export const patterns: PatternItem[] = [
   {
     id: "intent-misclassification",
-    name: "Intent Misclassification",
+    name: "Intent MisUnderstanding",
     percentage: 40,
     sessions: 499,
     resolutionImpact: "-8%",
@@ -334,7 +334,7 @@ export type ActionCard = {
 export const actionCards: ActionCard[] = [
   {
     id: "intent-misclassification",
-    title: "Intent Misclassification",
+    title: "Intent MisUnderstanding",
     impact: "Resolution -8%",
     ctaLabel: "Optimize Intent Classification",
     analysis: {
@@ -424,7 +424,7 @@ export const expectedBusinessImpact = [
 export const fixBeforeAfterConversations = [
   {
     id: "fix-intent",
-    title: "Intent Misclassification Fix",
+    title: "Intent MisUnderstanding Fix",
     before: { role: "User", text: "When will my order ship?" },
     beforeAgent: { role: "Agent", text: "You can request a refund here." },
     after: { role: "User", text: "When will my order ship?" },
@@ -642,7 +642,7 @@ export const askFixedInsight = {
     "Multi-intent issues frequently answered incompletely"
   ],
   topDrivers: [
-    { name: "Intent Misclassification", share: "40%", resolutionImpact: "-8%" },
+    { name: "Intent MisUnderstanding", share: "40%", resolutionImpact: "-8%" },
     { name: "Tool Failure", share: "35%", resolutionImpact: "-7%" },
     { name: "Reasoning Failure", share: "25%", resolutionImpact: "-5%" }
   ],
@@ -722,8 +722,6 @@ export function isAskRagOptimizationQuestion(text: string): boolean {
     n.includes("improve rag") ||
     n.includes("rag optimization") ||
     n.includes("rag workspace") ||
-    (n.includes("improve") && n.includes("retrieval")) ||
-    n.includes("如何优化rag") ||
-    n.includes("怎么优化rag")
+    (n.includes("improve") && n.includes("retrieval"))
   );
 }

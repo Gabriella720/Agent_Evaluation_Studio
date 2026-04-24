@@ -5,8 +5,10 @@ import { motion } from "framer-motion";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import {
   AlertTriangle,
+  ArrowLeft,
   Bot,
   ChartColumn,
+  ChevronRight,
   CircleAlert,
   Copy,
   FolderKanban,
@@ -40,6 +42,7 @@ import { AppHeaderBar } from "@/components/layout/AppHeaderBar";
 import { AgentMetricsDashboard } from "@/components/sections/AgentMetricsDashboard";
 import { AskAgentSidebar } from "@/components/sections/AskAgentSidebar";
 import { RagOptimizationWorkspace } from "@/components/sections/RagOptimizationWorkspace";
+import { PatternEvaluationModule } from "@/components/sections/PatternEvaluationModule";
 import type { TooltipContentProps } from "recharts";
 
 const navItems = [
@@ -57,7 +60,7 @@ export function StudioApp() {
   const [connectTab, setConnectTab] = useState<"api" | "trace">("api");
   const [ingested, setIngested] = useState(false);
   const [activePattern, setActivePattern] = useState("intent-misclassification");
-  const [runSimulation, setRunSimulation] = useState(false);
+  const [lastSimulatedSignature, setLastSimulatedSignature] = useState<string | null>(null);
   const [copiedType, setCopiedType] = useState<"api" | "trace" | null>(null);
   const [highlightSessionId, setHighlightSessionId] = useState<string | null>(null);
   const [patternsSessionsExpanded, setPatternsSessionsExpanded] = useState(false);
@@ -71,6 +74,7 @@ export function StudioApp() {
     null
   );
   const [metricsFocusWidgetId, setMetricsFocusWidgetId] = useState<string | null>(null);
+  const [patternSubView, setPatternSubView] = useState<"overview" | "evaluation">("overview");
 
   useEffect(() => {
     if (!highlightSessionId) return;
@@ -111,20 +115,33 @@ export function StudioApp() {
 
   const actionCardForCause = (causeId: string) => actionCards.find((c) => c.id === causeId);
 
-  const openActionCenterFor = (causeId: string) => {
+  const openActionCenterFor = (causeId: string, selectOption?: ActionOptionId | null) => {
     setActivePattern(causeId);
     setActiveNav("root");
     setOpenActionCardId(causeId);
+    setSelectedActionOption(selectOption === undefined ? null : selectOption);
   };
 
   const applyOptimization = (causeId: string, optionId: ActionOptionId) => {
     setAppliedOptimizations((prev) => ({ ...prev, [optionId]: true }));
     setAppliedCause((prev) => ({ ...prev, [causeId]: true }));
+    // Any new optimization invalidates the last simulation snapshot.
+    setLastSimulatedSignature(null);
   };
 
   const ragApplied = !!appliedOptimizations["rag-retrieval"];
 
   const appliedCount = Object.values(appliedCause).filter(Boolean).length;
+  const hasAnyAppliedOptimization = useMemo(() => Object.values(appliedOptimizations).some(Boolean), [appliedOptimizations]);
+  const currentSimulationSignature = useMemo(() => {
+    const keys = Object.entries(appliedOptimizations)
+      .filter(([, v]) => !!v)
+      .map(([k]) => k)
+      .sort();
+    const rag = ragImpact ? `${ragImpact.intentAccuracyDelta}|${ragImpact.resolutionDelta}|${ragImpact.ragHitRateDelta}` : "none";
+    return `${keys.join(",")}::${rag}`;
+  }, [appliedOptimizations, ragImpact]);
+  const simulationFinished = lastSimulatedSignature != null && lastSimulatedSignature === currentSimulationSignature;
   const simAfter = useMemo(() => {
     // Deterministic mapping: full uplift only when all three causes have at least one applied optimization.
     const full = appliedCount >= 3;
@@ -176,7 +193,10 @@ export function StudioApp() {
                     type="button"
                     key={item.id}
                     className={`nav-item ${activeNav === item.id ? "active" : ""}`}
-                    onClick={() => setActiveNav(item.id)}
+                    onClick={() => {
+                      if (item.id === "patterns") setPatternSubView("overview");
+                      setActiveNav(item.id);
+                    }}
                   >
                     <Icon size={14} />
                     {item.label}
@@ -220,10 +240,13 @@ export function StudioApp() {
               type="button"
               onClick={() => {
                 if (!ingested) return;
-                setActiveNav("patterns");
+                if (activeNav === "metrics") {
+                  setPatternSubView("overview");
+                  setActiveNav("patterns");
+                } else setActiveNav("metrics");
               }}
             >
-              Investigate
+              {activeNav === "metrics" ? "Investigate" : "View Data"}
             </button>
           </section>
         )}
@@ -340,8 +363,28 @@ export function StudioApp() {
 
         {ingested && activeNav === "patterns" && (
           <div className="pattern-analysis-page">
+            {patternSubView === "overview" ? (
+              <>
             <section className="panel pattern-module">
-              <h2>Root Cause Detection</h2>
+              <div className="rcd-panel-head">
+                <h2>Root Cause Detection</h2>
+                <div className="rcd-panel-actions">
+                  <button type="button" className="rcd-solution-entry" onClick={() => setActiveNav("root")}>
+                    <span className="rcd-eval-entry-text">
+                      <span className="rcd-eval-entry-title">Solution &amp; Roadmap</span>
+                      <span className="rcd-eval-entry-sub">Recommended fixes and rollout plan</span>
+                    </span>
+                    <ChevronRight className="rcd-eval-entry-chevron" size={20} strokeWidth={2.2} aria-hidden />
+                  </button>
+                  <button type="button" className="rcd-eval-entry" onClick={() => setPatternSubView("evaluation")}>
+                    <span className="rcd-eval-entry-text">
+                      <span className="rcd-eval-entry-title">Evaluation</span>
+                      <span className="rcd-eval-entry-sub">How conclusions are verified</span>
+                    </span>
+                    <ChevronRight className="rcd-eval-entry-chevron" size={20} strokeWidth={2.2} aria-hidden />
+                  </button>
+                </div>
+              </div>
               <p className="panel-lead">{askAnalysisSummary}</p>
               <div className="chart-shell rcd-chart">
                 <ResponsiveContainer width="100%" height={220}>
@@ -512,6 +555,30 @@ export function StudioApp() {
                 </button>
               )}
             </section>
+              </>
+            ) : (
+              <section className="panel pattern-module pattern-evaluation-subpage" id="pattern-evaluation-subpage">
+                <button type="button" className="pattern-sub-back" onClick={() => setPatternSubView("overview")}>
+                  <ArrowLeft size={16} strokeWidth={2.2} aria-hidden />
+                  Pattern Analysis
+                </button>
+                <h2>Evaluation</h2>
+                <p className="panel-lead">
+                  The Pattern Analysis overview summarizes <em>what</em> failed for <strong>{patternName(activePattern)}</strong>. This
+                  page shows <em>how</em> that conclusion is supported—structured evidence, process traces, and deterministic checks tied
+                  to the same three verified drivers. Use the evaluation tools below to probe your agent with the same signals (demo).
+                </p>
+                <PatternEvaluationModule
+                  key={activePattern}
+                  patternId={activePattern}
+                  appliedForPattern={!!appliedCause[activePattern]}
+                  onApplyFix={(causeId, optionId) => openActionCenterFor(causeId, optionId)}
+                  onOpenSimulation={() => {
+                    setActiveNav("opt");
+                  }}
+                />
+              </section>
+            )}
           </div>
         )}
 
@@ -554,6 +621,15 @@ export function StudioApp() {
                   </button>
                 ))}
               </div>
+
+              <button
+                type="button"
+                className="ac-impact-jump"
+                disabled={!hasAnyAppliedOptimization}
+                onClick={() => setActiveNav("opt")}
+              >
+                Open Impact Simulation →
+              </button>
             </article>
 
             <article className="panel action-center-right">
@@ -675,8 +751,17 @@ export function StudioApp() {
                 <h3>Impact Simulation</h3>
                 <p>Projected outcomes after implementing your applied optimizations</p>
               </div>
-              <button type="button" className="primary impact-run" onClick={() => setRunSimulation(true)}>
-                Run Simulation
+              <button
+                type="button"
+                className={`primary impact-run ${simulationFinished ? "impact-run--done" : ""}`}
+                disabled={!hasAnyAppliedOptimization}
+                onClick={() => {
+                  if (!hasAnyAppliedOptimization) return;
+                  // Manual trigger only: capture a simulation snapshot for the currently applied optimizations.
+                  setLastSimulatedSignature(currentSimulationSignature);
+                }}
+              >
+                {simulationFinished ? "Finished Simulation" : "Run Simulation"}
               </button>
             </section>
 
@@ -715,11 +800,11 @@ export function StudioApp() {
                     </div>
                     <div className="impact-mid">
                       <span className="impact-arrow">→</span>
-                      <span className="impact-uplift-inline">{runSimulation ? item.uplift : "waiting..."}</span>
+                      <span className="impact-uplift-inline">{simulationFinished ? item.uplift : "waiting..."}</span>
                     </div>
                     <div>
                       <span className="impact-label">After</span>
-                      <strong className="impact-after">{runSimulation ? item.after : "--"}</strong>
+                      <strong className="impact-after">{simulationFinished ? item.after : "--"}</strong>
                     </div>
                   </div>
                 </motion.article>
@@ -795,18 +880,27 @@ export function StudioApp() {
             ingested={ingested}
             onOpenMetrics={() => setActiveNav("metrics")}
             onOpenPatterns={() => {
+              setPatternSubView("overview");
               setActiveNav("patterns");
             }}
             onOpenSessionReplay={(id) => {
               const row = [...sessionReplays, ...sessionReplaysMore].find((s) => s.id === id);
               const inMore = sessionReplaysMore.some((s) => s.id === id);
+              setPatternSubView("overview");
               setActiveNav("patterns");
               if (row) setActivePattern(row.patternId);
               if (inMore) setPatternsSessionsExpanded(true);
               setSessionDialogueOpen({});
               setHighlightSessionId(id);
             }}
-            onOpenActionCenter={(causeId) => openActionCenterFor(causeId)}
+            onOpenActionCenter={(causeId, optionId) => openActionCenterFor(causeId, optionId)}
+            onOpenPatternEvaluation={() => {
+              setActiveNav("patterns");
+              setPatternSubView("evaluation");
+              window.setTimeout(() => {
+                document.getElementById("pattern-evaluation-subpage")?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }, 120);
+            }}
             onOpenSolutionRoadmap={() => setActiveNav("root")}
             onOpenRagWorkspace={() => {
               if (!ingested) return;

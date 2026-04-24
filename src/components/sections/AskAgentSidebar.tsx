@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { Copy, Mic, Send, Sparkles, ThumbsDown, ThumbsUp } from "lucide-react";
-import { askFixedInsight, askSuggestedActionLinks, isAskRagOptimizationQuestion } from "@/lib/mockData";
+import { isModelVsToolEvaluationQuestion } from "@/lib/evaluationModuleMock";
+import { askFixedInsight, askSuggestedActionLinks, isAskRagOptimizationQuestion, type ActionOptionId } from "@/lib/mockData";
 
 type AskAgentSidebarProps = {
   ingested: boolean;
@@ -10,7 +11,8 @@ type AskAgentSidebarProps = {
   onOpenMetrics?: () => void;
   onOpenPatterns?: () => void;
   onOpenSessionReplay?: (sessionId: string) => void;
-  onOpenActionCenter?: (causeId: string) => void;
+  onOpenActionCenter?: (causeId: string, optionId?: ActionOptionId | null) => void;
+  onOpenPatternEvaluation?: () => void;
   onOpenSolutionRoadmap?: () => void;
   onOpenRagWorkspace?: () => void;
 };
@@ -19,7 +21,8 @@ const exampleQuestions = [
   "Why did resolution rate drop today?",
   "Which driver contributed most to the resolution gap?",
   "Summarize the three verified failure patterns",
-  "How to improve RAG?"
+  "How to improve RAG?",
+  "Is this problem caused by the model or the tool?"
 ];
 
 export function AskAgentSidebar({
@@ -28,6 +31,7 @@ export function AskAgentSidebar({
   onOpenMetrics,
   onOpenPatterns,
   onOpenActionCenter,
+  onOpenPatternEvaluation,
   onOpenSolutionRoadmap,
   onOpenRagWorkspace
 }: AskAgentSidebarProps) {
@@ -40,6 +44,17 @@ export function AskAgentSidebar({
   const [copied, setCopied] = useState(false);
 
   const answerText = useMemo(() => {
+    const diagnosis = isModelVsToolEvaluationQuestion(lastQuestion)
+      ? [
+          "",
+          "Model vs Tool (diagnosis)",
+          "- In this incident slice, symptoms split across LLM-as-a-Judge / Process signals (routing & reasoning) vs Deterministic / Process tool signals.",
+          "- Use LLM Judge + Process evaluation when the failure looks like misclassification or weak reasoning.",
+          "- Use Process + Deterministic checks when SQL/API contracts disagree while prose still looks fluent.",
+          "- Recommendation: run Evaluation Strategy on Pattern Analysis to validate before applying an Action."
+        ].join("\n")
+      : "";
+
     return [
       "Agent Metrics Summary",
       `- ${askFixedInsight.summaryBullets.join("\n- ")}`,
@@ -48,9 +63,10 @@ export function AskAgentSidebar({
       `- ${askFixedInsight.topDrivers.map((d) => `${d.name} ${d.share} · resolution ${d.resolutionImpact}`).join("\n- ")}`,
       "",
       "Solution & Roadmap",
-      `- ${askSuggestedActionLinks.map((a) => a.label).join("\n- ")}`
+      `- ${askSuggestedActionLinks.map((a) => a.label).join("\n- ")}`,
+      diagnosis
     ].join("\n");
-  }, []);
+  }, [lastQuestion]);
 
   const runMockWork = () => {
     setSteps([
@@ -143,7 +159,27 @@ export function AskAgentSidebar({
               </div>
             )}
 
-            {askState === "done" && (
+            {askState === "done" && isModelVsToolEvaluationQuestion(lastQuestion) && (
+              <div className="ask-diagnosis-block">
+                <h3 className="ask-insight-title">Model vs tool — triage</h3>
+                <ul className="ask-insight-list">
+                  <li>
+                    <strong>Likely model-side</strong> when LLM Judge shows low Correctness/Reasoning while Safety stays high, and
+                    Process flags Intent Detection or response synthesis — stay within the three verified patterns.
+                  </li>
+                  <li>
+                    <strong>Likely tool-side</strong> when Deterministic checks fail on SQL/API while the model text is coherent, and
+                    Process shows Tool Selection failures — still maps to Tool Failure, not a new root cause.
+                  </li>
+                </ul>
+                <p className="ask-diagnosis-hint">Run evaluation to validate which evidence path dominates for your cohort.</p>
+                <button type="button" className="ask-link-row" onClick={() => onOpenPatternEvaluation?.()} disabled={!ingested}>
+                  Open Evaluation Strategy →
+                </button>
+              </div>
+            )}
+
+            {askState === "done" && !isModelVsToolEvaluationQuestion(lastQuestion) && (
               <>
                 <h3 className="ask-insight-title">Agent Metrics Summary</h3>
                 <ul className="ask-insight-list">
@@ -198,45 +234,47 @@ export function AskAgentSidebar({
                     </button>
                   </div>
                 ) : null}
+              </>
+            )}
 
-                <div className="ask-feedback">
+            {askState === "done" && (
+              <div className="ask-feedback">
+                <button
+                  type="button"
+                  className="ask-feedback-btn"
+                  aria-label="Copy answer"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(answerText);
+                      setCopied(true);
+                      window.setTimeout(() => setCopied(false), 1200);
+                    } catch {
+                      setCopied(false);
+                    }
+                  }}
+                >
+                  <Copy size={14} />
+                  {copied ? "Copied" : "Copy"}
+                </button>
+                <div className="ask-feedback-right">
                   <button
                     type="button"
-                    className="ask-feedback-btn"
-                    aria-label="Copy answer"
-                    onClick={async () => {
-                      try {
-                        await navigator.clipboard.writeText(answerText);
-                        setCopied(true);
-                        window.setTimeout(() => setCopied(false), 1200);
-                      } catch {
-                        setCopied(false);
-                      }
-                    }}
+                    className={`ask-icon-react ${feedback === "up" ? "active" : ""}`}
+                    aria-label="Thumbs up"
+                    onClick={() => setFeedback((v) => (v === "up" ? null : "up"))}
                   >
-                    <Copy size={14} />
-                    {copied ? "Copied" : "Copy"}
+                    <ThumbsUp size={14} />
                   </button>
-                  <div className="ask-feedback-right">
-                    <button
-                      type="button"
-                      className={`ask-icon-react ${feedback === "up" ? "active" : ""}`}
-                      aria-label="Thumbs up"
-                      onClick={() => setFeedback((v) => (v === "up" ? null : "up"))}
-                    >
-                      <ThumbsUp size={14} />
-                    </button>
-                    <button
-                      type="button"
-                      className={`ask-icon-react ${feedback === "down" ? "active" : ""}`}
-                      aria-label="Thumbs down"
-                      onClick={() => setFeedback((v) => (v === "down" ? null : "down"))}
-                    >
-                      <ThumbsDown size={14} />
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    className={`ask-icon-react ${feedback === "down" ? "active" : ""}`}
+                    aria-label="Thumbs down"
+                    onClick={() => setFeedback((v) => (v === "down" ? null : "down"))}
+                  >
+                    <ThumbsDown size={14} />
+                  </button>
                 </div>
-              </>
+              </div>
             )}
           </div>
         )}
