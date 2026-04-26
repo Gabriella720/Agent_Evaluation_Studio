@@ -184,7 +184,7 @@ export function AgentMetricsDashboard({
               className="kpi-drill-btn"
               onClick={() => onOpenPatternAnalysis?.("intent-misclassification")}
             >
-              Drilldown →
+              Analysis →
             </button>
           </div>
           <div className="kpi-metric-row">
@@ -819,9 +819,9 @@ export function AgentMetricsDashboard({
 
       {(
         [
-          { key: "business" as const, title: "BUSINESS METRICS", defaults: ["resolution", "nps", "firstContact"] },
-          { key: "product" as const, title: "PRODUCT METRICS", defaults: ["taskSuccess", "escalation", "repeatContact"] },
-          { key: "system" as const, title: "SYSTEM METRICS", defaults: ["intent", "latency", "rag"] }
+          { key: "business" as const, title: "Business Metrics", defaults: ["resolution", "nps", "firstContact"] },
+          { key: "product" as const, title: "Product Metrics", defaults: ["taskSuccess", "escalation", "repeatContact"] },
+          { key: "system" as const, title: "System Metrics", defaults: ["intent", "latency", "rag"] }
         ] as const
       ).map((group) => (
         <section key={group.key} className="metrics-module">
