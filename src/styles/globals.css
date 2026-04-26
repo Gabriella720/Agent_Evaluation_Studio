@@ -2611,9 +2611,10 @@ pre {
 
 .driven-metrics-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   padding-right: 2px;
+  overflow: hidden;
 }
 
 @media (max-width: 900px) {
@@ -2647,6 +2648,7 @@ pre {
   cursor: pointer;
   text-align: left;
   transition: border-color 0.15s ease, transform 0.12s ease;
+  min-width: 0;
 }
 
 .driven-row:hover {
@@ -2656,11 +2658,14 @@ pre {
 
 
 .driven-name {
+  flex: 1;
+  min-width: 0;
   font-size: 12px;
   font-weight: 800;
 }
 
 .driven-delta {
+  flex-shrink: 0;
   font-size: 12px;
   font-weight: 900;
   white-space: nowrap;
