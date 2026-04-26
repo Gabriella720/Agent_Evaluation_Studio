@@ -339,6 +339,11 @@ export function StudioApp() {
                 metrics={baseMetrics}
                 focusWidgetId={metricsFocusWidgetId ?? undefined}
                 onFocusHandled={() => setMetricsFocusWidgetId(null)}
+                onOpenPatternAnalysis={(patternId) => {
+                  setActiveNav("patterns");
+                  setPatternSubView("overview");
+                  setActivePattern(patternId);
+                }}
               />
             </section>
           </>

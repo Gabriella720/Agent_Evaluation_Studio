@@ -23,7 +23,7 @@ import {
   YAxis
 } from "recharts";
 import type { MetricItem } from "@/lib/mockData";
-import { metrics as baseMetrics, resolutionImpactBreakdown } from "@/lib/mockData";
+import { metrics as baseMetrics, resolutionMetricAttribution } from "@/lib/mockData";
 import { ragMetrics } from "@/lib/mockData";
 import {
   escalationTrend,
@@ -113,11 +113,13 @@ const ragSubMetricEndPct = {
 export function AgentMetricsDashboard({
   metrics = baseMetrics,
   focusWidgetId,
-  onFocusHandled
+  onFocusHandled,
+  onOpenPatternAnalysis
 }: {
   metrics?: readonly MetricItem[];
   focusWidgetId?: string;
   onFocusHandled?: () => void;
+  onOpenPatternAnalysis?: (patternId: string) => void;
 }) {
   const [range, setRange] = useState<(typeof rangeOptions)[number]["id"]>("30d");
   const [openGroupMenu, setOpenGroupMenu] = useState<"business" | "product" | "system" | null>(null);
@@ -128,6 +130,12 @@ export function AgentMetricsDashboard({
   });
   const [ragExpanded, setRagExpanded] = useState(false);
   const [ragZoom, setRagZoom] = useState<null | "accuracy" | "recall" | "faithfulness" | "context">(null);
+  const [drivenOpen, setDrivenOpen] = useState(false);
+
+  const scrollToWidget = (widgetId: string) => {
+    const el = document.getElementById(`kpi-${widgetId}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   const headerSubtitle = useMemo(() => {
     if (range === "7d") return "Incident-aligned view: Taobao AI CS, last 7 days.";
@@ -169,17 +177,23 @@ export function AgentMetricsDashboard({
       const m = metricOf(metrics, "resolution-rate");
       return (
         <article className="kpi-card kpi-critical" id="kpi-resolution">
-          <h4>Resolution Rate</h4>
+          <div className="kpi-card-head-row">
+            <h4>Resolution Rate</h4>
+            <button
+              type="button"
+              className="kpi-drill-btn"
+              onClick={() => onOpenPatternAnalysis?.("intent-misclassification")}
+            >
+              Drilldown →
+            </button>
+          </div>
           <div className="kpi-metric-row">
             <strong className="kpi-current">{m.current}</strong>
             <span className="kpi-target">{m.target}</span>
             <span className={`kpi-delta ${m.status}`}>{m.delta}</span>
           </div>
-          <p className="resolution-breakdown">
-            Impact: {resolutionImpactBreakdown.map((b) => `${b.label} ${b.value}`).join(" · ")}
-          </p>
-          <div className="chart-shell compact">
-            <ResponsiveContainer width="100%" height={150}>
+          <div className="chart-shell resolution-trend">
+            <ResponsiveContainer width="100%" height={210}>
               <AreaChart data={resolutionTrend} margin={{ top: 4, right: 6, left: 0, bottom: 36 }}>
                 <CartesianGrid stroke="#3f1d1d" />
                 <XAxis dataKey="month" stroke="#fca5a5" tick={{ fontSize: 10, fill: "#fca5a5" }} height={22} />
@@ -191,6 +205,58 @@ export function AgentMetricsDashboard({
               </AreaChart>
             </ResponsiveContainer>
           </div>
+
+          <div className="driven-metrics">
+            <div className="driven-metrics-head">
+              <p className="driven-metrics-title">Driven Metrics</p>
+              <button type="button" className="driven-metrics-toggle" onClick={() => setDrivenOpen((v) => !v)}>
+                {drivenOpen ? "Hide" : "Show"}
+              </button>
+            </div>
+            {drivenOpen ? (
+              <div className="driven-metrics-grid">
+              <div className="driven-col">
+                <span className="driven-col-title">Product</span>
+                {resolutionMetricAttribution.relatedMetrics
+                  .filter((x) => x.level === "product")
+                  .map((x) => (
+                    <button
+                      key={x.metricId}
+                      type="button"
+                      className="driven-row"
+                      onClick={() => scrollToWidget(x.widgetId)}
+                    >
+                      <span className="driven-name">{x.name}</span>
+                      <span className={`driven-delta ${x.direction}`}>
+                        {({ up: "↑", down: "↓" } as const)[x.direction]} {({ up: "+", down: "-" } as const)[x.direction]}
+                        {x.change}%
+                      </span>
+                    </button>
+                  ))}
+              </div>
+              <div className="driven-col">
+                <span className="driven-col-title">System</span>
+                {resolutionMetricAttribution.relatedMetrics
+                  .filter((x) => x.level === "system")
+                  .map((x) => (
+                    <button
+                      key={x.metricId}
+                      type="button"
+                      className="driven-row"
+                      onClick={() => scrollToWidget(x.widgetId)}
+                    >
+                      <span className="driven-name">{x.name}</span>
+                      <span className={`driven-delta ${x.direction}`}>
+                        {({ up: "↑", down: "↓" } as const)[x.direction]} {({ up: "+", down: "-" } as const)[x.direction]}
+                        {x.change}%
+                      </span>
+                    </button>
+                  ))}
+              </div>
+              </div>
+            ) : null}
+          </div>
+
           {foot}
         </article>
       );

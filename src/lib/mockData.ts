@@ -269,6 +269,181 @@ export const resolutionImpactBreakdown = [
   { label: "Reasoning failure", value: "-5%" }
 ] as const;
 
+export type MetricImpact = {
+  pattern: PatternItem["id"];
+  label: string;
+  impact: number;
+};
+
+export type RelatedMetric = {
+  metricId: MetricItem["id"];
+  name: string;
+  level: "product" | "system";
+  change: number;
+  direction: "up" | "down";
+  /** Metrics dashboard widget id for scroll-to. */
+  widgetId: "taskSuccess" | "escalation" | "repeatContact" | "intent" | "rag" | "latency";
+};
+
+export const resolutionMetricAttribution = {
+  value: 62,
+  target: 82,
+  change: -20,
+  impacts: [
+    { pattern: "intent-misclassification", label: "Intent MisUnderstanding", impact: -8 },
+    { pattern: "tool-failure", label: "Tool Failure", impact: -7 },
+    { pattern: "reasoning-failure", label: "Reasoning Failure", impact: -5 }
+  ] satisfies MetricImpact[],
+  relatedMetrics: [
+    // Only show the causal chain metrics that contribute to Resolution Rate.
+    { metricId: "task-success", name: "Task Success Rate", level: "product", change: 12, direction: "down", widgetId: "taskSuccess" },
+    { metricId: "intent-accuracy", name: "Intent Accuracy", level: "system", change: 18, direction: "down", widgetId: "intent" },
+    { metricId: "rag-score", name: "RAG Score", level: "system", change: 18, direction: "down", widgetId: "rag" },
+    { metricId: "latency", name: "Latency", level: "system", change: 70, direction: "up", widgetId: "latency" }
+  ] satisfies RelatedMetric[]
+} as const;
+
+export type MetricDrillFactorGroup = {
+  title: string;
+  bullets: string[];
+};
+
+export type MetricDrillDetail = {
+  metricId: MetricItem["id"];
+  title: string;
+  current: string;
+  delta: string;
+  groups: MetricDrillFactorGroup[];
+  /** Action Center target (existing actions only). */
+  fix: { causeId: PatternItem["id"]; optionId: ActionOptionId; label: string };
+};
+
+export type PatternDrillMap = {
+  patternId: PatternItem["id"];
+  patternName: string;
+  impact: string;
+  drivenBy: {
+    productMetricIds: MetricItem["id"][];
+    systemMetricIds: MetricItem["id"][];
+  };
+  viewPatternHint: string;
+};
+
+export type CausalDrilldownGraph = {
+  /** Only one entry point for this demo */
+  businessMetricId: "resolution-rate";
+  impactBreakdown: { patternId: PatternItem["id"]; label: string; impact: string }[];
+  level2: Record<PatternItem["id"], PatternDrillMap>;
+  level3: Record<MetricItem["id"], MetricDrillDetail>;
+};
+
+/**
+ * Causal Drill-down System (single source of truth for drill mapping)
+ * Business → Pattern → Product/System → System contributing factors + fix target.
+ */
+export const causalDrilldown: CausalDrilldownGraph = {
+  businessMetricId: "resolution-rate",
+  impactBreakdown: [
+    { patternId: "intent-misclassification", label: "Intent MisUnderstanding", impact: "-8% →" },
+    { patternId: "tool-failure", label: "Tool Failure", impact: "-7% →" },
+    { patternId: "reasoning-failure", label: "Reasoning Failure", impact: "-5% →" }
+  ],
+  level2: {
+    "intent-misclassification": {
+      patternId: "intent-misclassification",
+      patternName: "Intent MisUnderstanding",
+      impact: "-8% Resolution",
+      drivenBy: {
+        productMetricIds: ["task-success"],
+        systemMetricIds: ["intent-accuracy", "rag-score"]
+      },
+      viewPatternHint: "View full pattern analysis"
+    },
+    "tool-failure": {
+      patternId: "tool-failure",
+      patternName: "Tool Failure",
+      impact: "-7% Resolution",
+      drivenBy: {
+        productMetricIds: ["escalation", "repeat-contact-rate"],
+        systemMetricIds: ["latency"]
+      },
+      viewPatternHint: "View full pattern analysis"
+    },
+    "reasoning-failure": {
+      patternId: "reasoning-failure",
+      patternName: "Reasoning Failure",
+      impact: "-5% Resolution",
+      drivenBy: {
+        productMetricIds: ["task-success"],
+        systemMetricIds: ["rag-score"]
+      },
+      viewPatternHint: "View full pattern analysis"
+    }
+  },
+  level3: {
+    "intent-accuracy": {
+      metricId: "intent-accuracy",
+      title: "Intent Accuracy",
+      current: "68%",
+      delta: "↓",
+      groups: [
+        {
+          title: "RAG Retrieval",
+          bullets: ["Hit rate ↓ (65%)", "Recall@5 ↓ (42%)", "Refund-policy distractors dominate top-k context"]
+        },
+        {
+          title: "Query Understanding",
+          bullets: ["Missing synonyms (ship = logistics)", "Ambiguous short queries over-trigger refund templates"]
+        },
+        {
+          title: "Context",
+          bullets: ["No user/order history signals in prompt", "Missing carrier / order status context for routing"]
+        }
+      ],
+      fix: { causeId: "intent-misclassification", optionId: "rag-retrieval", label: "Optimize RAG Retrieval" }
+    },
+    "rag-score": {
+      metricId: "rag-score",
+      title: "RAG Score",
+      current: "62 / 80",
+      delta: "↓",
+      groups: [
+        {
+          title: "Retrieval quality",
+          bullets: ["Recall@5 ↓ (42%)", "Context precision ↓ (65%)", "Chunking + rerank not tuned for shipping intents"]
+        },
+        {
+          title: "Grounding",
+          bullets: ["Faithfulness drifts when context is irrelevant", "Answer accuracy depends on correct policy source"]
+        }
+      ],
+      fix: { causeId: "intent-misclassification", optionId: "rag-retrieval", label: "Optimize RAG Retrieval" }
+    },
+    latency: {
+      metricId: "latency",
+      title: "Latency (avg)",
+      current: "1.2s",
+      delta: "↑",
+      groups: [
+        { title: "Tool execution", bullets: ["Order lookup timeouts spike", "Retries not capped, cascading latency on failure"] },
+        { title: "Fallback behavior", bullets: ["No graceful fallback path when tool is degraded", "User retries amplify load"] }
+      ],
+      fix: { causeId: "tool-failure", optionId: "retry-mechanism", label: "Add Retry Mechanism" }
+    },
+    "task-success": {
+      metricId: "task-success",
+      title: "Task Success Rate",
+      current: "71%",
+      delta: "↓",
+      groups: [
+        { title: "User journey", bullets: ["Misrouted intents block correct task graph", "Tool failures interrupt completion"] },
+        { title: "Reasoning", bullets: ["Multi-intent requests not decomposed", "Agent stops after one subtask"] }
+      ],
+      fix: { causeId: "reasoning-failure", optionId: "planner", label: "Planner Module" }
+    }
+  }
+};
+
 export const patterns: PatternItem[] = [
   {
     id: "intent-misclassification",
