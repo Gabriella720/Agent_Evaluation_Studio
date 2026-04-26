@@ -234,9 +234,9 @@ export function PatternEvaluationModule({
                 <div className="pattern-eval-result">
                   <p className="pattern-eval-label">Step Breakdown</p>
                   <ol className="pattern-eval-steps">
-                    {bundle.process.steps.map((s, i) => (
+                    {bundle.process.steps.map((s) => (
                       <li key={s.name}>
-                        <span className="pattern-eval-step-ix">{i + 1}.</span> {s.name}{" "}
+                        {s.name}{" "}
                         <span className="pattern-eval-step-ico">{stepIcon(s.status)}</span>
                       </li>
                     ))}
