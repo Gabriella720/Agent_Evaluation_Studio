@@ -49,6 +49,26 @@ export type PatternItem = {
   severity: "high" | "medium" | "low";
 };
 
+/** Resolution impact rows — shares match Pattern Analysis; impact ≈ share × avg cohort drop (demo). */
+export type ImpactDetail = {
+  pattern: string;
+  patternId: PatternItem["id"];
+  impact: number;
+  /** % of incident sessions attributed to this pattern (matches Pattern Analysis card share). */
+  affectedSessions: number;
+  /** Average resolution-rate drop inside this pattern’s sessions (percentage points, demo). */
+  avgDrop: number;
+  confidence: "high" | "medium" | "low";
+};
+
+export type RagMetric = {
+  value: number;
+  target: number;
+  recommendedRange: readonly [number, number];
+  targetRationale: string;
+  impactCurve: { from: number; to: number; impact: "high" | "medium" | "low" }[];
+};
+
 export type SessionReplayItem = {
   id: string;
   patternId: PatternItem["id"];
@@ -157,18 +177,18 @@ export const metrics: MetricItem[] = [
     id: "task-success",
     group: "Product",
     name: "Task Success Rate",
-    current: "71%",
+    current: "60%",
     target: "/ 88%",
-    delta: "-12%",
+    delta: "-18%",
     status: "down",
     impactHint: METRIC_DRIVER_HINT,
     trend: [
-      { label: "d1", value: 86 },
-      { label: "d2", value: 84 },
-      { label: "d3", value: 82 },
-      { label: "d4", value: 79 },
-      { label: "d5", value: 75 },
-      { label: "d6", value: 71 }
+      { label: "d1", value: 78 },
+      { label: "d2", value: 76 },
+      { label: "d3", value: 73 },
+      { label: "d4", value: 69 },
+      { label: "d5", value: 65 },
+      { label: "d6", value: 60 }
     ]
   },
   {
@@ -263,10 +283,65 @@ export const metrics: MetricItem[] = [
   }
 ];
 
-export const resolutionImpactBreakdown = [
-  { label: "Intent misunderstanding", value: "-8%" },
-  { label: "Tool failure", value: "-7%" },
-  { label: "Reasoning failure", value: "-5%" }
+export const resolutionImpactDetails: ImpactDetail[] = [
+  {
+    pattern: "Intent MisUnderstanding",
+    patternId: "intent-misclassification",
+    impact: -8,
+    affectedSessions: 40,
+    avgDrop: 20,
+    confidence: "high"
+  },
+  {
+    pattern: "Tool Failure",
+    patternId: "tool-failure",
+    impact: -7,
+    affectedSessions: 35,
+    avgDrop: 20,
+    confidence: "high"
+  },
+  {
+    pattern: "Reasoning Failure",
+    patternId: "reasoning-failure",
+    impact: -5,
+    affectedSessions: 25,
+    avgDrop: 20,
+    confidence: "high"
+  }
+];
+
+export const resolutionImpactBreakdown = resolutionImpactDetails.map((d) => ({
+  label:
+    d.patternId === "intent-misclassification"
+      ? "Intent misunderstanding"
+      : d.patternId === "tool-failure"
+        ? "Tool failure"
+        : "Reasoning failure",
+  value: `${d.impact}%`
+})) as readonly { label: string; value: string }[];
+
+export const resolutionAttributionConfidence = {
+  level: "high" as const,
+  sampledSessions: 20
+};
+
+/** RAG target & diminishing returns — aligns RAG card + Simulation copy. */
+export const ragMetricModel: RagMetric = {
+  value: 62,
+  target: 80,
+  recommendedRange: [78, 82],
+  targetRationale: "Optimized for resolution rate",
+  impactCurve: [
+    { from: 65, to: 75, impact: "high" },
+    { from: 75, to: 80, impact: "medium" },
+    { from: 80, to: 85, impact: "low" }
+  ]
+};
+
+/** Impact Simulation: marginal gains above the business-chosen target (80). */
+export const ragSimulationLinkage = [
+  { ragFrom: 65, ragTo: 81, resolutionDelta: "+18%" },
+  { ragFrom: 81, ragTo: 86, resolutionDelta: "+0.5%" }
 ] as const;
 
 export type MetricImpact = {
@@ -289,11 +364,14 @@ export const resolutionMetricAttribution = {
   value: 62,
   target: 82,
   change: -20,
-  impacts: [
-    { pattern: "intent-misclassification", label: "Intent MisUnderstanding", impact: -8 },
-    { pattern: "tool-failure", label: "Tool Failure", impact: -7 },
-    { pattern: "reasoning-failure", label: "Reasoning Failure", impact: -5 }
-  ] satisfies MetricImpact[],
+  impacts: resolutionImpactDetails.map(
+    (d) =>
+      ({
+        pattern: d.patternId,
+        label: d.pattern,
+        impact: d.impact
+      }) satisfies MetricImpact
+  ),
   relatedMetrics: [
     // Only show the causal chain metrics that contribute to Resolution Rate.
     { metricId: "task-success", name: "Task Success Rate", level: "product", change: 12, direction: "down", widgetId: "taskSuccess" },
@@ -433,7 +511,7 @@ export const causalDrilldown: CausalDrilldownGraph = {
     "task-success": {
       metricId: "task-success",
       title: "Task Success Rate",
-      current: "71%",
+      current: "60%",
       delta: "↓",
       groups: [
         { title: "User journey", bullets: ["Misrouted intents block correct task graph", "Tool failures interrupt completion"] },

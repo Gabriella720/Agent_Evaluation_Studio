@@ -33,10 +33,10 @@ export const ahtMiniTrend = metric("latency").trend.map((t, i) => ({
 
 export const taskFunnel = [
   { stage: "Initiated", value: 100 },
-  { stage: "Intent confirmed", value: 76 },
-  { stage: "Knowledge retrieved", value: 58 },
-  { stage: "Tool executed", value: 41 },
-  { stage: "Task complete", value: 28 }
+  { stage: "Intent confirmed", value: 72 },
+  { stage: "Knowledge retrieved", value: 68 },
+  { stage: "Tool executed", value: 64 },
+  { stage: "Task complete", value: 60 }
 ];
 
 export const escalationTrend = metric("escalation").trend.map((t, i) => ({

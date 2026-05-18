@@ -23,13 +23,12 @@ import {
   YAxis
 } from "recharts";
 import type { MetricItem } from "@/lib/mockData";
-import { metrics as baseMetrics, resolutionMetricAttribution } from "@/lib/mockData";
+import { metrics as baseMetrics, ragMetricModel, resolutionMetricAttribution } from "@/lib/mockData";
 import { ragMetrics } from "@/lib/mockData";
 import {
   escalationTrend,
   intentMatrix,
   latencySeries,
-  metricFooterHint,
   npsGauge,
   rangeOptions,
   resolutionTrend,
@@ -157,8 +156,6 @@ export function AgentMetricsDashboard({
     setOpenGroupMenu(null);
   };
 
-  const foot = <p className="kpi-card-foot">{metricFooterHint}</p>;
-
   // Deep-link focus from other modules (e.g. RAG workspace -> RAG widget).
   // Uses the local widget id (e.g. "rag", "intent", "resolution").
   useEffect(() => {
@@ -256,8 +253,6 @@ export function AgentMetricsDashboard({
               </div>
             ) : null}
           </div>
-
-          {foot}
         </article>
       );
     }
@@ -296,7 +291,6 @@ export function AgentMetricsDashboard({
             </ResponsiveContainer>
             <span className="kpi-gauge-status">{npsGauge.status}</span>
           </div>
-          {foot}
         </article>
       );
     }
@@ -323,7 +317,6 @@ export function AgentMetricsDashboard({
               </LineChart>
             </ResponsiveContainer>
           </div>
-          {foot}
         </article>
       );
     }
@@ -350,7 +343,6 @@ export function AgentMetricsDashboard({
               </FunnelChart>
             </ResponsiveContainer>
           </div>
-          {foot}
         </article>
       );
     }
@@ -387,7 +379,6 @@ export function AgentMetricsDashboard({
               </ComposedChart>
             </ResponsiveContainer>
           </div>
-          {foot}
         </article>
       );
     }
@@ -414,7 +405,6 @@ export function AgentMetricsDashboard({
               </LineChart>
             </ResponsiveContainer>
           </div>
-          {foot}
         </article>
       );
     }
@@ -447,7 +437,6 @@ export function AgentMetricsDashboard({
               </tbody>
             </table>
           </div>
-          {foot}
         </article>
       );
     }
@@ -476,7 +465,6 @@ export function AgentMetricsDashboard({
               </LineChart>
             </ResponsiveContainer>
           </div>
-          {foot}
         </article>
       );
     }
@@ -501,7 +489,6 @@ export function AgentMetricsDashboard({
               </div>
             ))}
           </div>
-          {foot}
         </article>
       );
     }
@@ -557,6 +544,14 @@ export function AgentMetricsDashboard({
             <strong className="kpi-current">{m.current}</strong>
             <span className="kpi-target">{m.target}</span>
             <span className={`kpi-delta ${m.status}`}>{m.delta}</span>
+          </div>
+          <div className="kpi-rag-target-block">
+            <div className="kpi-rag-target-row">
+              <span className="kpi-rag-target-strong">Target: {ragMetricModel.target}</span>
+              <span className="kpi-rag-range-badge" title="Recommended operating band from retrieval QA + resolution elasticity curve">
+                Range {ragMetricModel.recommendedRange[0]}–{ragMetricModel.recommendedRange[1]}
+              </span>
+            </div>
           </div>
           <div className="chart-shell">
             <ResponsiveContainer width="100%" height={210}>
@@ -679,7 +674,6 @@ export function AgentMetricsDashboard({
               </div>
             </div>
           ) : null}
-          {foot}
         </article>
       );
     }
@@ -699,7 +693,6 @@ export function AgentMetricsDashboard({
               </LineChart>
             </ResponsiveContainer>
           </div>
-          {foot}
         </article>
       );
     }
@@ -720,7 +713,6 @@ export function AgentMetricsDashboard({
               </ComposedChart>
             </ResponsiveContainer>
           </div>
-          {foot}
         </article>
       );
     }
@@ -728,7 +720,6 @@ export function AgentMetricsDashboard({
     return (
       <article className="kpi-card">
         <h4>METRIC</h4>
-        <p className="kpi-card-foot">{metricFooterHint}</p>
       </article>
     );
   };

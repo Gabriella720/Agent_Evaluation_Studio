@@ -31,6 +31,7 @@ import {
   ingestionTraceExample,
   metrics as baseMetrics,
   patterns,
+  ragSimulationLinkage,
   expectedBusinessImpact,
   fixBeforeAfterConversations,
   type FixConversationCard,
@@ -570,17 +571,15 @@ export function StudioApp() {
                 <h2>Evaluation</h2>
                 <p className="panel-lead">
                   The Pattern Analysis overview summarizes <em>what</em> failed for <strong>{patternName(activePattern)}</strong>. This
-                  page shows <em>how</em> that conclusion is supported—structured evidence, process traces, and deterministic checks tied
-                  to the same three verified drivers. Use the evaluation tools below to probe your agent with the same signals (demo).
+                  page shows <em>how</em> that conclusion is supported—LLM Judge, process traces, deterministic checks, and curated{" "}
+                  <strong>Evals</strong> tied to the same drivers and Task Success metrics. Use the tabs below to probe your agent with the
+                  same signals (demo).
                 </p>
                 <PatternEvaluationModule
                   key={activePattern}
                   patternId={activePattern}
                   appliedForPattern={!!appliedCause[activePattern]}
                   onApplyFix={(causeId, optionId) => openActionCenterFor(causeId, optionId)}
-                  onOpenSimulation={() => {
-                    setActiveNav("opt");
-                  }}
                 />
               </section>
             )}
@@ -768,6 +767,25 @@ export function StudioApp() {
               >
                 {simulationFinished ? "Finished Simulation" : "Run Simulation"}
               </button>
+            </section>
+
+            <section className="impact-rag-linkage" aria-labelledby="impact-rag-linkage-title">
+              <h4 id="impact-rag-linkage-title">RAG score ↔ Resolution (demo elasticity)</h4>
+              <p className="impact-rag-linkage-lead">
+                Same narrative as the RAG Score card: large resolution lifts while RAG is below ~80, then marginal returns — supporting a
+                business target of <strong>80</strong> instead of chasing 85+ blindly.
+              </p>
+              <ul className="impact-rag-linkage-list">
+                {ragSimulationLinkage.map((row) => (
+                  <li key={`${row.ragFrom}-${row.ragTo}`}>
+                    <span className="impact-rag-linkage-kpi">
+                      RAG Score: {row.ragFrom} → {row.ragTo}
+                    </span>
+                    <span className="impact-rag-linkage-sep">·</span>
+                    <span className="impact-rag-linkage-res">Resolution: {row.resolutionDelta}</span>
+                  </li>
+                ))}
+              </ul>
             </section>
 
             <section className="impact-business">
