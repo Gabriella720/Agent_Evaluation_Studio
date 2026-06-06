@@ -57,9 +57,9 @@ const navItems = [
 type NavId = (typeof navItems)[number]["id"] | "rag";
 
 export function StudioApp() {
-  const [activeNav, setActiveNav] = useState<NavId>("connect");
+  const [activeNav, setActiveNav] = useState<NavId>("metrics");
   const [connectTab, setConnectTab] = useState<"api" | "trace">("api");
-  const [ingested, setIngested] = useState(false);
+  const [ingested, setIngested] = useState(true);
   const [activePattern, setActivePattern] = useState("intent-misclassification");
   const [lastSimulatedSignature, setLastSimulatedSignature] = useState<string | null>(null);
   const [copiedType, setCopiedType] = useState<"api" | "trace" | null>(null);
