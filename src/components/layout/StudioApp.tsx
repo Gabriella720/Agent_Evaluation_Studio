@@ -15,7 +15,6 @@ import {
   Lightbulb,
   MessageSquare,
   PlugZap,
-  Send,
   Target,
   TriangleAlert
 } from "lucide-react";
@@ -27,8 +26,6 @@ import {
   type ActionOptionId,
   cohortReplays,
   DEMO_AFFECTED_SESSIONS,
-  ingestionApiExample,
-  ingestionTraceExample,
   metrics as baseMetrics,
   patterns,
   ragSimulationLinkage,
@@ -39,9 +36,11 @@ import {
   sessionReplays,
   sessionReplaysMore,
 } from "@/lib/mockData";
+import { dataFusionSummary, dataSourceConfigs } from "@/lib/dataSourceMock";
 import { AppHeaderBar } from "@/components/layout/AppHeaderBar";
 import { AgentMetricsDashboard } from "@/components/sections/AgentMetricsDashboard";
 import { AskAgentSidebar } from "@/components/sections/AskAgentSidebar";
+import { ConnectAgentPanel } from "@/components/sections/ConnectAgentPanel";
 import { RagOptimizationWorkspace } from "@/components/sections/RagOptimizationWorkspace";
 import { PatternEvaluationModule } from "@/components/sections/PatternEvaluationModule";
 import type { TooltipContentProps } from "recharts";
@@ -57,12 +56,10 @@ const navItems = [
 type NavId = (typeof navItems)[number]["id"] | "rag";
 
 export function StudioApp() {
-  const [activeNav, setActiveNav] = useState<NavId>("metrics");
-  const [connectTab, setConnectTab] = useState<"api" | "trace">("api");
+  const [activeNav, setActiveNav] = useState<NavId>("connect");
   const [ingested, setIngested] = useState(true);
   const [activePattern, setActivePattern] = useState("intent-misclassification");
   const [lastSimulatedSignature, setLastSimulatedSignature] = useState<string | null>(null);
-  const [copiedType, setCopiedType] = useState<"api" | "trace" | null>(null);
   const [highlightSessionId, setHighlightSessionId] = useState<string | null>(null);
   const [patternsSessionsExpanded, setPatternsSessionsExpanded] = useState(false);
   const [sessionDialogueOpen, setSessionDialogueOpen] = useState<Record<string, boolean>>({});
@@ -88,18 +85,6 @@ export function StudioApp() {
   const onSendSampleData = () => {
     setIngested(true);
     setActiveNav("metrics");
-  };
-
-  const copyConnectSnippet = async (type: "api" | "trace", content: string) => {
-    try {
-      await navigator.clipboard.writeText(content);
-      setCopiedType(type);
-      setTimeout(() => {
-        setCopiedType((prev) => (prev === type ? null : prev));
-      }, 1400);
-    } catch {
-      setCopiedType(null);
-    }
   };
 
   const sessionsForCohort = useMemo(() => {
@@ -252,77 +237,7 @@ export function StudioApp() {
           </section>
         )}
 
-        {activeNav === "connect" && (
-          <section className="connect-panel">
-            <h2>Agent Data Ingestion</h2>
-            <p>Stream Taobao AI Customer Service sessions. One click loads the full incident dataset used across Metrics, Patterns, Root Cause, and Simulation.</p>
-            <div className="connect-tabs">
-              <button className={connectTab === "api" ? "active" : ""} type="button" onClick={() => setConnectTab("api")}>
-                API
-              </button>
-              <button className={connectTab === "trace" ? "active" : ""} type="button" onClick={() => setConnectTab("trace")}>
-                Trace
-              </button>
-            </div>
-            {connectTab === "api" ? (
-              <>
-                <div className="connect-code-block">
-                  <div className="trace-head">
-                    <div>
-                      <h4>API payload example</h4>
-                      <small>POST JSON session payloads to the ingestion endpoint</small>
-                    </div>
-                    <button
-                      type="button"
-                      className="copy-icon"
-                      aria-label="Copy API integration example"
-                      onClick={() => copyConnectSnippet("api", ingestionApiExample)}
-                    >
-                      <Copy size={14} />
-                    </button>
-                  </div>
-                  <pre>{ingestionApiExample}</pre>
-                </div>
-                <div className="ingestion-actions">
-                  <button type="button" className="primary" onClick={onSendSampleData}>
-                    <Send size={14} />
-                    Send Sample Data
-                  </button>
-                  <button type="button" className="ghost">View Documentation</button>
-                  {copiedType === "api" && <span className="copied-state">Copied</span>}
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="connect-code-block">
-                  <div className="trace-head">
-                    <div>
-                      <h4>Trace payload example</h4>
-                      <small>Ship OpenTelemetry spans for each agent turn</small>
-                    </div>
-                    <button
-                      type="button"
-                      className="copy-icon"
-                      aria-label="Copy trace example"
-                      onClick={() => copyConnectSnippet("trace", ingestionTraceExample)}
-                    >
-                      <Copy size={14} />
-                    </button>
-                  </div>
-                  <pre>{ingestionTraceExample}</pre>
-                </div>
-                <div className="ingestion-actions">
-                  <button type="button" className="primary" onClick={onSendSampleData}>
-                    <Send size={14} />
-                    Send Sample Data
-                  </button>
-                  <button type="button" className="ghost">View Documentation</button>
-                  {copiedType === "trace" && <span className="copied-state">Copied</span>}
-                </div>
-              </>
-            )}
-          </section>
-        )}
+        {activeNav === "connect" && <ConnectAgentPanel ingested={ingested} onSendSampleData={onSendSampleData} />}
 
         {!ingested && activeNav !== "connect" && (
           <section className="empty-state">
@@ -369,6 +284,23 @@ export function StudioApp() {
 
         {ingested && activeNav === "patterns" && (
           <div className="pattern-analysis-page">
+            <section className="data-fusion-strip">
+              <div className="data-fusion-strip-head">
+                <strong>{dataFusionSummary.headline}</strong>
+                <div className="data-fusion-pills">
+                  {(Object.keys(dataSourceConfigs) as Array<keyof typeof dataSourceConfigs>).map((id) => (
+                    <span key={id} className="data-fusion-pill">
+                      {dataSourceConfigs[id].shortLabel}
+                      <em>{dataSourceConfigs[id].records24h.toLocaleString()}</em>
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <p className="data-fusion-strip-sub">
+                Pattern Analysis joins feedback signals, production outcomes, and sampled agent traces for full-chain Failure
+                Pattern discovery.
+              </p>
+            </section>
             {patternSubView === "overview" ? (
               <>
             <section className="panel pattern-module">
@@ -886,13 +818,6 @@ export function StudioApp() {
           </section>
         )}
 
-        {ingested && activeNav === "connect" && (
-          <section className="empty-state">
-            <Bot size={20} />
-            <h3>Agent is connected and observable</h3>
-            <p>Use the left navigation tabs to inspect metrics, analyze patterns, review root cause, and validate optimization impact.</p>
-          </section>
-        )}
           </main>
         </Panel>
 
